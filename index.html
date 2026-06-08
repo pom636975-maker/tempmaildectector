@@ -11,15 +11,8 @@
         margin: 0;
         background: #faf9f8;
       }
-      #root {
-        opacity: 0;
-      }
-      html.app-ready #root {
-        opacity: 1;
-        transition: opacity 120ms ease-out;
-      }
       html:not(.fonts-ready) .material-symbols-outlined {
-        color: transparent !important;
+        font-size: 0 !important;
       }
     </style>
     <script>
