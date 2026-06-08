@@ -593,7 +593,7 @@ async function deleteProjectRow(tableName, rowId, projectId) {
   return Boolean(data?.length);
 }
 
-async function router(req, res) {
+export async function router(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (req.method === 'OPTIONS') return send(res, 204, {});
 
@@ -830,7 +830,9 @@ async function router(req, res) {
   }
 }
 
-http.createServer(router).listen(PORT, () => {
-  console.log(`STRAVOTECH API using InsForge at ${INSFORGE_URL}`);
-  console.log(`STRAVOTECH API listening on http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+  http.createServer(router).listen(PORT, () => {
+    console.log(`STRAVOTECH API using InsForge at ${INSFORGE_URL}`);
+    console.log(`STRAVOTECH API listening on http://localhost:${PORT}`);
+  });
+}
