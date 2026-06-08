@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>STRAVOTECH | Command Center</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Geist:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "secondary": "#0058be",
+                "on-secondary-fixed-variant": "#004395",
+                "surface-container-lowest": "#ffffff",
+                "on-primary-fixed": "#131b2e",
+                "on-secondary": "#ffffff",
+                "on-surface-variant": "#45464d",
+                "inverse-on-surface": "#f1f0f0",
+                "surface": "#faf9f8",
+                "tertiary-fixed": "#fcdeb5",
+                "on-primary-fixed-variant": "#3f465c",
+                "primary-fixed": "#dae2fd",
+                "inverse-surface": "#2f3130",
+                "status-risk": "#EF4444",
+                "surface-dim": "#dadad9",
+                "secondary-fixed": "#d8e2ff",
+                "on-error-container": "#93000a",
+                "background": "#faf9f8",
+                "tertiary-container": "#271901",
+                "surface-container-high": "#e9e8e7",
+                "primary-container": "#131b2e",
+                "on-surface": "#1a1c1c",
+                "surface-tint": "#565e74",
+                "surface-container-highest": "#e3e2e1",
+                "on-secondary-fixed": "#001a42",
+                "surface-container": "#eeeeed",
+                "primary-fixed-dim": "#bec6e0",
+                "status-warning": "#F59E0B",
+                "on-tertiary": "#ffffff",
+                "border-subtle": "#E2E8F0",
+                "error": "#ba1a1a",
+                "on-primary-container": "#7c839b",
+                "on-background": "#1a1c1c",
+                "on-tertiary-fixed": "#271901",
+                "surface-card": "#FFFFFF",
+                "on-primary": "#ffffff",
+                "on-error": "#ffffff",
+                "on-tertiary-container": "#98805d",
+                "error-container": "#ffdad6",
+                "primary": "#000000",
+                "tertiary-fixed-dim": "#dec29a",
+                "on-secondary-container": "#fefcff",
+                "surface-bright": "#faf9f8",
+                "on-tertiary-fixed-variant": "#574425",
+                "inverse-primary": "#bec6e0",
+                "surface-container-low": "#f4f3f2",
+                "surface-variant": "#e3e2e1",
+                "tertiary": "#000000",
+                "outline-variant": "#c6c6cd",
+                "secondary-fixed-dim": "#adc6ff",
+                "secondary-container": "#2170e4",
+                "status-protected": "#10B981",
+                "outline": "#76777d"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "spacing": {
+                "margin-mobile": "20px",
+                "margin-desktop": "64px",
+                "gutter": "24px",
+                "unit": "4px",
+                "container-max": "1280px"
+            },
+            "fontFamily": {
+                "code-sm": ["Geist"],
+                "display-lg": ["Geist"],
+                "headline-sm": ["Geist"],
+                "display-lg-mobile": ["Geist"],
+                "body-lg": ["Inter"],
+                "headline-md": ["Geist"],
+                "body-md": ["Inter"],
+                "label-caps": ["Geist"]
+            },
+            "fontSize": {
+                "code-sm": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "700"}],
+                "headline-sm": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                "body-lg": ["18px", {"lineHeight": "1.7", "fontWeight": "400"}],
+                "headline-md": ["30px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                "label-caps": ["12px", {"lineHeight": "1", "letterSpacing": "0.08em", "fontWeight": "600"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body { background-color: #FDFCFB; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .metric-card-hover:hover { box-shadow: 0px 4px 20px rgba(15, 23, 42, 0.04); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
+        @keyframes countUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-count { animation: countUp 0.6s ease-out forwards; }
+    </style>
+</head>
+<body class="font-body-md text-on-surface selection:bg-secondary-fixed selection:text-on-secondary-fixed">
+<!-- Top Navigation Anchor -->
+<header class="flex justify-between items-center w-full px-margin-desktop h-16 ml-64 max-w-[calc(100%-256px)] bg-surface border-b border-border-subtle fixed top-0 z-50">
+<div class="flex items-center gap-6">
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-on-surface-variant">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border border-border-subtle rounded-lg w-96 text-code-sm focus:outline-none focus:ring-1 focus:ring-secondary transition-all" placeholder="Search risky domains, events, or users..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-surface-container transition-all rounded-full"><span class="material-symbols-outlined text-on-surface-variant">notifications</span></button>
+<button class="p-2 hover:bg-surface-container transition-all rounded-full"><span class="material-symbols-outlined text-on-surface-variant">help_outline</span></button>
+<div class="h-8 w-[1px] bg-border-subtle mx-2"></div>
+<button class="flex items-center gap-3 py-1.5 px-3 hover:bg-surface-container transition-all rounded-full group">
+<img alt="User Avatar" class="w-8 h-8 rounded-full border border-border-subtle" data-alt="A professional studio portrait of a modern tech founder with short hair and a minimalist black turtleneck. The lighting is soft and directional, typical of high-end corporate photography, against a clean, architectural concrete background. The overall aesthetic is serious, intelligent, and refined, matching a premium SaaS environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBuPl2E07n0s-Y1RnQ7vv1BP-DOv7FgfgEg26G0Wl2Tjrt8GioK9xE321hTtZ-Z0KnbS2kX7cv0_QwX_p63BsPsb-66HIbxHQ8sTSwCpzk5RqkrHiKIaVcR2-QFaz9o1uyc8xakbWXEQZGNkvtyPLJ7ZqL1HcOH1mXZnzZdvmSZ47q00OGJZN70f6nrPh4C-L9rq3tIdPAkgmisnoj-4mDgMtf9zEDOPz_8l2EDVlCTEBCUUdt5vfDHRB04LxY7RwHYtBWUDpSP8ws6"/>
+<span class="font-label-caps text-label-caps">Profile Settings</span>
+</button>
+</div>
+</header>
+<!-- Side Navigation Anchor -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-surface border-r border-border-subtle flex flex-col py-8 px-4 z-50">
+<div class="mb-10 px-2">
+<div class="flex items-center gap-3 mb-1">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary text-[20px]">security</span>
+</div>
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary">STRAVOTECH</h1>
+</div>
+<p class="font-label-caps text-[10px] tracking-widest text-on-surface-variant opacity-60 ml-11">FOUNDER SUITE</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-secondary dark:text-secondary-fixed-dim font-bold border-r-2 border-secondary bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-label-caps text-label-caps">Overview</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">security</span>
+<span class="font-label-caps text-label-caps">Risk Events</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">key</span>
+<span class="font-label-caps text-label-caps">API Keys</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">rule</span>
+<span class="font-label-caps text-label-caps">Rules</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">analytics</span>
+<span class="font-label-caps text-label-caps">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">extension</span>
+<span class="font-label-caps text-label-caps">Integrations</span>
+</a>
+</nav>
+<div class="mt-auto space-y-1">
+<button class="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[20px]">help</span>
+<span class="font-label-caps text-label-caps">Support</span>
+</button>
+<button class="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-label-caps text-label-caps">Settings</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-24 px-margin-desktop pb-12 max-w-[1440px]">
+<!-- Header Section -->
+<div class="flex justify-between items-end mb-8">
+<div>
+<h1 class="font-headline-md text-headline-md text-primary mb-1">Command Center</h1>
+<p class="text-on-surface-variant font-body-md">Monitor signup quality before fake users enter your product.</p>
+</div>
+<div class="flex p-1 bg-surface-container-low border border-border-subtle rounded-xl">
+<button class="px-4 py-1.5 text-label-caps font-label-caps rounded-lg bg-white shadow-sm border border-border-subtle">Today</button>
+<button class="px-4 py-1.5 text-label-caps font-label-caps rounded-lg text-on-surface-variant hover:bg-surface-container">7 days</button>
+<button class="px-4 py-1.5 text-label-caps font-label-caps rounded-lg text-on-surface-variant hover:bg-surface-container">30 days</button>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Hero Card -->
+<div class="col-span-12 lg:col-span-8 bg-white border border-border-subtle rounded-xl p-8 flex items-center justify-between relative overflow-hidden group hover:border-secondary transition-all">
+<div class="relative z-10 flex flex-col h-full justify-between">
+<div>
+<div class="flex items-center gap-2 mb-4">
+<span class="inline-block w-2 h-2 rounded-full bg-status-protected animate-pulse"></span>
+<span class="font-label-caps text-label-caps text-status-protected">System Active</span>
+</div>
+<h2 class="font-headline-md text-headline-md mb-2">Your signup quality is stable today.</h2>
+<p class="text-on-surface-variant text-body-lg mb-8 max-w-md">Our intelligence blocked 47 risky signups in the last 24 hours, preventing potential credit exhaustion.</p>
+</div>
+<button class="w-fit bg-primary text-on-primary px-6 py-3 rounded-lg font-label-caps text-label-caps font-bold hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2">
+                        View Risk Events
+                        <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+<div class="flex items-center gap-10">
+<div class="relative flex flex-col items-center">
+<svg class="w-32 h-32 transform -rotate-90">
+<circle class="text-surface-container" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-secondary transition-all duration-1000" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" stroke-dasharray="364.4" stroke-dashoffset="58.3" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="font-display-lg text-[32px] text-primary">84</span>
+<span class="font-label-caps text-[10px] text-on-surface-variant">QUALITY</span>
+</div>
+<div class="mt-4 flex items-center gap-1 text-status-protected font-label-caps text-[12px] font-bold">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+                            +12%
+                        </div>
+</div>
+</div>
+<!-- Abstract architectural detail background -->
+<div class="absolute top-0 right-0 h-full w-1/3 opacity-[0.03] pointer-events-none group-hover:opacity-[0.06] transition-opacity">
+<div class="grid grid-cols-4 h-full border-l border-primary">
+<div class="border-r border-primary h-full"></div>
+<div class="border-r border-primary h-full"></div>
+<div class="border-r border-primary h-full"></div>
+</div>
+</div>
+</div>
+<!-- Cost Protection Sidebar Card -->
+<div class="col-span-12 lg:col-span-4 bg-white border border-border-subtle rounded-xl p-8 flex flex-col">
+<div class="flex justify-between items-start mb-6">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-1">TOTAL PROTECTED</p>
+<h3 class="font-display-lg text-[40px] text-primary">$928</h3>
+</div>
+<div class="p-2 bg-secondary/10 rounded-lg">
+<span class="material-symbols-outlined text-secondary">account_balance_wallet</span>
+</div>
+</div>
+<div class="space-y-4 mb-6">
+<div class="flex justify-between items-center text-code-sm">
+<span class="text-on-surface-variant">Cloud Infrastructure</span>
+<span class="font-bold">$412.00</span>
+</div>
+<div class="flex justify-between items-center text-code-sm">
+<span class="text-on-surface-variant">Third-party API Costs</span>
+<span class="font-bold">$388.50</span>
+</div>
+<div class="flex justify-between items-center text-code-sm">
+<span class="text-on-surface-variant">Marketing Acquisition</span>
+<span class="font-bold">$127.50</span>
+</div>
+</div>
+<div class="mt-auto h-12 w-full bg-surface-container-low rounded-lg overflow-hidden flex items-end px-4 gap-1">
+<div class="flex-1 bg-secondary opacity-20 h-[40%] rounded-t-sm"></div>
+<div class="flex-1 bg-secondary opacity-40 h-[60%] rounded-t-sm"></div>
+<div class="flex-1 bg-secondary opacity-30 h-[45%] rounded-t-sm"></div>
+<div class="flex-1 bg-secondary opacity-60 h-[80%] rounded-t-sm"></div>
+<div class="flex-1 bg-secondary h-[95%] rounded-t-sm"></div>
+<div class="flex-1 bg-secondary opacity-50 h-[70%] rounded-t-sm"></div>
+<div class="flex-1 bg-secondary opacity-30 h-[40%] rounded-t-sm"></div>
+</div>
+</div>
+<!-- Metric Grid -->
+<div class="col-span-12 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap- gutter">
+<!-- Metric 1 -->
+<div class="bg-white border border-border-subtle p-6 rounded-xl metric-card-hover transition-all">
+<p class="font-label-caps text-[10px] text-on-surface-variant mb-4 uppercase tracking-wider">Fake signups blocked</p>
+<div class="flex items-end justify-between">
+<h4 class="font-headline-sm text-headline-sm text-primary">289</h4>
+<span class="text-status-risk font-bold text-code-sm flex items-center gap-1">+18%</span>
+</div>
+<div class="mt-4 h-1 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="bg-status-risk h-full w-[18%]"></div>
+</div>
+</div>
+<!-- Metric 2 -->
+<div class="bg-white border border-border-subtle p-6 rounded-xl metric-card-hover transition-all">
+<p class="font-label-caps text-[10px] text-on-surface-variant mb-4 uppercase tracking-wider">AI Credits Saved</p>
+<div class="flex items-end justify-between">
+<h4 class="font-headline-sm text-headline-sm text-primary">$742</h4>
+<span class="text-secondary font-bold text-code-sm flex items-center gap-1">+$128</span>
+</div>
+<div class="mt-4 h-1 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="bg-secondary h-full w-[65%]"></div>
+</div>
+</div>
+<!-- Metric 3 -->
+<div class="bg-white border border-border-subtle p-6 rounded-xl metric-card-hover transition-all">
+<p class="font-label-caps text-[10px] text-on-surface-variant mb-4 uppercase tracking-wider">Junk Contacts prevented</p>
+<div class="flex items-end justify-between">
+<h4 class="font-headline-sm text-headline-sm text-primary">312</h4>
+<span class="text-status-warning font-bold text-code-sm flex items-center gap-1">63 today</span>
+</div>
+<div class="mt-4 h-1 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="bg-status-warning h-full w-[40%]"></div>
+</div>
+</div>
+<!-- Metric 4 -->
+<div class="bg-white border border-border-subtle p-6 rounded-xl metric-card-hover transition-all">
+<p class="font-label-caps text-[10px] text-on-surface-variant mb-4 uppercase tracking-wider">Marketing Waste Protected</p>
+<div class="flex items-end justify-between">
+<h4 class="font-headline-sm text-headline-sm text-primary">$186</h4>
+<span class="text-status-protected font-bold text-code-sm flex items-center gap-1">+9%</span>
+</div>
+<div class="mt-4 h-1 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="bg-status-protected h-full w-[25%]"></div>
+</div>
+</div>
+<!-- Metric 5 -->
+<div class="bg-white border border-border-subtle p-6 rounded-xl metric-card-hover transition-all">
+<p class="font-label-caps text-[10px] text-on-surface-variant mb-4 uppercase tracking-wider">Risky Signup Rate</p>
+<div class="flex items-end justify-between">
+<h4 class="font-headline-sm text-headline-sm text-primary">33.1%</h4>
+<span class="text-status-warning font-bold text-code-sm flex items-center gap-1">-4.2%</span>
+</div>
+<div class="mt-4 h-1 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="bg-status-warning h-full w-[33%]"></div>
+</div>
+</div>
+</div>
+<!-- Charts and Insights Row -->
+<div class="col-span-12 lg:col-span-7 bg-white border border-border-subtle rounded-xl p-8">
+<div class="flex justify-between items-center mb-10">
+<h3 class="font-headline-sm text-[18px]">Risk Trends</h3>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-[2px] bg-primary"></span>
+<span class="text-code-sm text-on-surface-variant">Total</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-[2px] bg-secondary"></span>
+<span class="text-code-sm text-on-surface-variant">Risky</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-[2px] bg-status-risk"></span>
+<span class="text-code-sm text-on-surface-variant">Blocked</span>
+</div>
+</div>
+</div>
+<div class="h-64 flex items-end gap-1 group relative">
+<!-- Pseudo Chart -->
+<div class="flex-1 bg-surface-container hover:bg-surface-container-high transition-colors h-[40%] relative"><div class="absolute bottom-full w-full h-1 bg-primary mb-2 opacity-10"></div></div>
+<div class="flex-1 bg-surface-container hover:bg-surface-container-high transition-colors h-[45%]"></div>
+<div class="flex-1 bg-surface-container hover:bg-surface-container-high transition-colors h-[38%]"></div>
+<div class="flex-1 bg-surface-container hover:bg-surface-container-high transition-colors h-[55%]"></div>
+<div class="flex-1 bg-surface-container hover:bg-surface-container-high transition-colors h-[60%]"></div>
+<div class="flex-1 bg-surface-container hover:bg-surface-container-high transition-colors h-[50%]"></div>
+<div class="flex-1 bg-surface-container hover:bg-surface-container-high transition-colors h-[42%]"></div>
+<div class="flex-1 bg-surface-container hover:bg-surface-container-high transition-colors h-[70%]"></div>
+<div class="flex-1 bg-surface-container hover:bg-surface-container-high transition-colors h-[68%]"></div>
+<div class="flex-1 bg-surface-container hover:bg-surface-container-high transition-colors h-[85%]"></div>
+<div class="flex-1 bg-surface-container hover:bg-surface-container-high transition-colors h-[75%]"></div>
+<div class="flex-1 bg-secondary opacity-20 h-[30%]"></div>
+<div class="flex-1 bg-secondary opacity-30 h-[35%]"></div>
+<div class="flex-1 bg-status-risk opacity-20 h-[15%]"></div>
+<div class="flex-1 bg-status-risk opacity-40 h-[20%]"></div>
+<!-- Axis -->
+<div class="absolute bottom-0 w-full h-[1px] bg-border-subtle"></div>
+</div>
+<div class="mt-4 flex justify-between text-code-sm text-on-surface-variant opacity-40 font-label-caps">
+<span>00:00</span>
+<span>06:00</span>
+<span>12:00</span>
+<span>18:00</span>
+<span>23:59</span>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-5 bg-white border border-border-subtle rounded-xl p-8">
+<h3 class="font-headline-sm text-[18px] mb-8">Funnel Protection Flow</h3>
+<div class="flex flex-col gap-6">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container-low border border-border-subtle rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">description</span>
+</div>
+<div class="flex-1 h-3 bg-surface-container rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[100%]"></div>
+</div>
+<div class="w-24 text-right">
+<span class="text-code-sm font-bold">1,248</span>
+<p class="text-[10px] text-on-surface-variant font-label-caps">Signups</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-secondary/10 border border-secondary/20 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary">verified_user</span>
+</div>
+<div class="flex-1 h-3 bg-surface-container rounded-full overflow-hidden flex">
+<div class="bg-secondary h-full w-[67%]"></div>
+<div class="bg-status-risk h-full w-[33%]"></div>
+</div>
+<div class="w-24 text-right">
+<span class="text-code-sm font-bold text-status-risk">289</span>
+<p class="text-[10px] text-on-surface-variant font-label-caps">Blocked</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-status-protected/10 border border-status-protected/20 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-status-protected">hub</span>
+</div>
+<div class="flex-1 h-3 bg-surface-container rounded-full overflow-hidden">
+<div class="bg-status-protected h-full w-[67%]"></div>
+</div>
+<div class="w-24 text-right">
+<span class="text-code-sm font-bold">959</span>
+<p class="text-[10px] text-on-surface-variant font-label-caps">Processed</p>
+</div>
+</div>
+</div>
+<div class="mt-10 grid grid-cols-2 gap-4">
+<div class="p-4 rounded-lg border border-border-subtle bg-surface-container-lowest">
+<p class="text-[10px] font-label-caps text-on-surface-variant mb-1">STRICTER BLOCKING</p>
+<p class="text-code-sm">Block all VPN users by default to reduce risk by 14%.</p>
+</div>
+<div class="p-4 rounded-lg border border-border-subtle bg-surface-container-lowest">
+<p class="text-[10px] font-label-caps text-on-surface-variant mb-1">INTEGRATION ALERT</p>
+<p class="text-code-sm">Connect Mailchimp to sync protected list.</p>
+</div>
+</div>
+</div>
+<!-- Table Section -->
+<div class="col-span-12 bg-white border border-border-subtle rounded-xl overflow-hidden">
+<div class="px-8 py-6 border-b border-border-subtle flex justify-between items-center">
+<h3 class="font-headline-sm text-[18px]">Live Risk Events</h3>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 border border-border-subtle rounded-lg text-code-sm font-bold flex items-center gap-2 hover:bg-surface-container transition-all">
+<span class="material-symbols-outlined text-[16px]">filter_list</span>
+                            Filter
+                        </button>
+<button class="px-3 py-1.5 border border-border-subtle rounded-lg text-code-sm font-bold flex items-center gap-2 hover:bg-surface-container transition-all">
+<span class="material-symbols-outlined text-[16px]">download</span>
+                            Export
+                        </button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-surface-container-low border-b border-border-subtle">
+<tr>
+<th class="px-8 py-4 font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Email Address</th>
+<th class="px-8 py-4 font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Risk Score</th>
+<th class="px-8 py-4 font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Reasons</th>
+<th class="px-8 py-4 font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Decision</th>
+<th class="px-8 py-4 font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Protected Area</th>
+<th class="px-8 py-4 font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Time</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-subtle">
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-8 py-4 text-code-sm font-bold">user@tempmail.dev</td>
+<td class="px-8 py-4">
+<div class="flex items-center gap-2">
+<div class="w-12 h-1.5 bg-surface-container rounded-full">
+<div class="bg-status-risk h-full w-[89%]"></div>
+</div>
+<span class="text-status-risk font-bold text-code-sm">89</span>
+</div>
+</td>
+<td class="px-8 py-4">
+<div class="flex gap-2">
+<span class="px-2 py-0.5 bg-surface-container rounded-md text-[10px] font-bold">temp_email</span>
+<span class="px-2 py-0.5 bg-surface-container rounded-md text-[10px] font-bold">VPN</span>
+</div>
+</td>
+<td class="px-8 py-4"><span class="px-3 py-1 bg-status-risk/10 text-status-risk font-bold rounded-lg text-[10px] border border-status-risk/20">BLOCK</span></td>
+<td class="px-8 py-4 text-on-surface-variant text-code-sm">AI Credits + CRM</td>
+<td class="px-8 py-4 text-on-surface-variant text-code-sm">2 min ago</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-8 py-4 text-code-sm font-bold">trial@maildrop.cc</td>
+<td class="px-8 py-4">
+<div class="flex items-center gap-2">
+<div class="w-12 h-1.5 bg-surface-container rounded-full">
+<div class="bg-status-risk h-full w-[76%]"></div>
+</div>
+<span class="text-status-risk font-bold text-code-sm">76</span>
+</div>
+</td>
+<td class="px-8 py-4">
+<div class="flex gap-2">
+<span class="px-2 py-0.5 bg-surface-container rounded-md text-[10px] font-bold">repeat_ip</span>
+</div>
+</td>
+<td class="px-8 py-4"><span class="px-3 py-1 bg-status-risk/10 text-status-risk font-bold rounded-lg text-[10px] border border-status-risk/20">BLOCK</span></td>
+<td class="px-8 py-4 text-on-surface-variant text-code-sm">Email List</td>
+<td class="px-8 py-4 text-on-surface-variant text-code-sm">8 min ago</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-8 py-4 text-code-sm font-bold">legit.founder@startup.io</td>
+<td class="px-8 py-4">
+<div class="flex items-center gap-2">
+<div class="w-12 h-1.5 bg-surface-container rounded-full">
+<div class="bg-status-protected h-full w-[12%]"></div>
+</div>
+<span class="text-status-protected font-bold text-code-sm">12</span>
+</div>
+</td>
+<td class="px-8 py-4">
+<span class="text-on-surface-variant text-[10px]">Clean profile</span>
+</td>
+<td class="px-8 py-4"><span class="px-3 py-1 bg-status-protected/10 text-status-protected font-bold rounded-lg text-[10px] border border-status-protected/20">ALLOW</span></td>
+<td class="px-8 py-4 text-on-surface-variant text-code-sm">Full Product Access</td>
+<td class="px-8 py-4 text-on-surface-variant text-code-sm">14 min ago</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-8 py-4 bg-surface-container-low border-t border-border-subtle text-right">
+<button class="text-secondary font-bold text-code-sm hover:underline">View all 1,248 events</button>
+</div>
+</div>
+<!-- Footer Sidebar style cards -->
+<div class="col-span-12 grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<div class="bg-white border border-border-subtle p-6 rounded-xl">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-4">Integration Status</h4>
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<span class="text-code-sm">API Gateway</span>
+<span class="w-2 h-2 rounded-full bg-status-protected"></span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-code-sm">Webhooks</span>
+<span class="w-2 h-2 rounded-full bg-status-protected"></span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-code-sm">HubSpot CRM</span>
+<span class="w-2 h-2 rounded-full bg-status-protected"></span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-code-sm">Intercom</span>
+<span class="w-2 h-2 rounded-full bg-status-protected"></span>
+</div>
+</div>
+</div>
+<div class="bg-white border border-border-subtle p-6 rounded-xl">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-4">Recommended Actions</h4>
+<div class="space-y-3">
+<button class="w-full text-left text-code-sm p-2 hover:bg-surface-container transition-all rounded flex items-center justify-between group">
+                            Review 12 pending risks
+                            <span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">chevron_right</span>
+</button>
+<button class="w-full text-left text-code-sm p-2 hover:bg-surface-container transition-all rounded flex items-center justify-between group">
+                            Stricter blocking policy
+                            <span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">chevron_right</span>
+</button>
+<button class="w-full text-left text-code-sm p-2 hover:bg-surface-container transition-all rounded flex items-center justify-between group">
+                            Enable Email Verification
+                            <span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="bg-white border border-border-subtle p-6 rounded-xl">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-4">API Usage</h4>
+<div class="flex justify-between mb-2">
+<span class="text-code-sm font-bold">8,429 / 10,000</span>
+<span class="text-code-sm text-on-surface-variant">84%</span>
+</div>
+<div class="w-full h-2 bg-surface-container rounded-full overflow-hidden mb-4">
+<div class="bg-primary h-full w-[84%]"></div>
+</div>
+<div class="flex justify-between items-center text-[10px] font-label-caps text-on-surface-variant">
+<span>ERROR RATE: 0.2%</span>
+<span class="text-status-protected">OPTIMAL</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Simple counter animation trigger
+        document.addEventListener('DOMContentLoaded', () => {
+            const elements = document.querySelectorAll('h4, h3, .animate-count');
+            elements.forEach((el, index) => {
+                el.classList.add('animate-count');
+                el.style.animationDelay = `${index * 0.05}s`;
+            });
+        });
+    </script>
+</body></html>

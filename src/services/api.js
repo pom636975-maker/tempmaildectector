@@ -1,0 +1,70 @@
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787';
+
+async function request(path, options = {}) {
+  const token = localStorage.getItem('stravo_access_token');
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message || body.error || 'Request failed');
+  return body;
+}
+
+export const authApi = {
+  signup: (payload) => request('/api/auth/signup', { method: 'POST', body: JSON.stringify(payload) }),
+  login: (payload) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+  me: () => request('/api/auth/me'),
+  logout: () => request('/api/auth/logout', { method: 'POST' }),
+  resetPassword: (email) => request('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ email }) }),
+};
+
+export const checkSignupRisk = (payload) =>
+  request('/api/risk-simulator', { method: 'POST', body: JSON.stringify(payload) });
+
+export const getDashboardMetrics = () => request('/api/dashboard/metrics');
+export const getRiskEvents = () => request('/api/risk-events');
+export const getRiskEvent = (id) => request(`/api/risk-events/${id}`);
+export const getApiKeys = () => request('/api/api-keys');
+export const createApiKey = (name, environment = 'live', scopes = ['signup:check']) =>
+  request('/api/api-keys', { method: 'POST', body: JSON.stringify({ name, environment, scopes }) });
+export const deleteApiKey = (id) => request(`/api/api-keys/${id}`, { method: 'DELETE' });
+export const revokeApiKey = deleteApiKey;
+export const getRules = () => request('/api/rules');
+export const updateRule = (id, updates) =>
+  request(`/api/rules/${id}`, { method: 'PATCH', body: JSON.stringify(updates) });
+export const getAnalytics = () => request('/api/analytics');
+export const getIntegrations = () => request('/api/integrations');
+export const updateIntegration = (id, updates) =>
+  request(`/api/integrations/${id}`, { method: 'PATCH', body: JSON.stringify(updates) });
+export const getReports = () => request('/api/reports');
+export const getMonthlyReport = () => request('/api/reports/monthly');
+export const getAlerts = () => request('/api/alerts');
+export const updateAlert = (id, updates) =>
+  request(`/api/alerts/${id}`, { method: 'PATCH', body: JSON.stringify(updates) });
+export const getBillingUsage = () => request('/api/billing');
+export const getBillingPlans = () => request('/api/billing/plans');
+export const getProjects = () => request('/api/projects');
+export const createProject = (name, plan = 'Growth') =>
+  request('/api/projects', { method: 'POST', body: JSON.stringify({ name, plan }) });
+export const getReviewQueue = () => request('/api/review-queue');
+export const updateReviewStatus = (id, status, email) =>
+  request(`/api/review-queue/${id}/${status === 'approved' ? 'approve' : 'block'}`, {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+
+export const getBlocklist = () => request('/api/blocklist');
+export const addBlocklistEntry = (payload) =>
+  request('/api/blocklist', { method: 'POST', body: JSON.stringify(payload) });
+export const removeBlocklistEntry = (id) => request(`/api/blocklist/${id}`, { method: 'DELETE' });
+
+export const getAllowlist = () => request('/api/allowlist');
+export const addAllowlistEntry = (payload) =>
+  request('/api/allowlist', { method: 'POST', body: JSON.stringify(payload) });
+export const removeAllowlistEntry = (id) => request(`/api/allowlist/${id}`, { method: 'DELETE' });
