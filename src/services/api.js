@@ -18,6 +18,8 @@ async function request(path, options = {}) {
 
 export const authApi = {
   signup: (payload) => request('/api/auth/signup', { method: 'POST', body: JSON.stringify(payload) }),
+  verifyEmail: (payload) => request('/api/auth/verify-email', { method: 'POST', body: JSON.stringify(payload) }),
+  resendVerification: (email) => request('/api/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email }) }),
   login: (payload) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
   me: () => request('/api/auth/me'),
   logout: () => request('/api/auth/logout', { method: 'POST' }),

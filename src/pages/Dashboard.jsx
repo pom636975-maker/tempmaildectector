@@ -3,20 +3,47 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getDashboardMetrics, getRiskEvents } from '../services/api';
 
+const emptyMetrics = {
+  totalProtected: '$0',
+  fakeSignupsBlocked: 0,
+  aiCreditsSaved: '$0',
+  junkContactsPrevented: 0,
+  marketingWasteProtected: '$0',
+  signupQualityScore: 100,
+  riskySignupRate: 0,
+  allowCount: 0,
+  reviewCount: 0,
+  blockCount: 0,
+  todayBlocked: 0,
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [metrics, setMetrics] = useState(null);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [activePeriod, setActivePeriod] = useState('Today');
 
   useEffect(() => {
-    Promise.all([getDashboardMetrics(), getRiskEvents()]).then(([m, e]) => {
-      setMetrics(m);
-      setEvents(e.slice(0, 5));
-      setLoading(false);
-    });
+    let alive = true;
+    Promise.all([getDashboardMetrics(), getRiskEvents()])
+      .then(([m, e]) => {
+        if (!alive) return;
+        setMetrics(m);
+        setEvents(Array.isArray(e) ? e.slice(0, 5) : []);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setLoadError(err.message || 'Dashboard data could not be loaded.');
+        setMetrics(emptyMetrics);
+        setEvents([]);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => { alive = false; };
   }, []);
 
   if (loading) return (
@@ -25,7 +52,7 @@ export default function Dashboard() {
     </div>
   );
 
-  const totalDecisions = (metrics.allowCount || 756) + (metrics.reviewCount || 203) + (metrics.blockCount || 289);
+  const totalDecisions = (metrics.allowCount || 0) + (metrics.reviewCount || 0) + (metrics.blockCount || 0);
   const qualityScore = metrics.signupQualityScore || 84;
   // Circumference for r=58 circle
   const circumference = 2 * Math.PI * 58; // 364.4
@@ -41,11 +68,11 @@ export default function Dashboard() {
 
   const displayEvents = events.length > 0 ? events.map((e, i) => ({
     email: e.email,
-    score: e.riskScore,
+    score: e.riskScore ?? e.risk_score ?? 0,
     reasons: e.reasons?.slice(0, 2) || [],
-    decision: e.decision,
-    area: e.protectedArea || 'AI Credits + CRM',
-    time: new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    decision: e.decision || e.action || 'ALLOW',
+    area: e.protectedArea || e.protected_areas?.join(' + ') || 'AI Credits + CRM',
+    time: new Date(e.timestamp || e.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   })) : mockEvents;
 
   return (
@@ -73,6 +100,12 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+
+      {loadError && (
+        <div className="mb-6 rounded-lg border border-status-warning/30 bg-status-warning/10 px-4 py-3 text-code-sm text-on-surface">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-12 gap-gutter">
 

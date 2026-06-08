@@ -38,9 +38,21 @@ export const AuthProvider = ({ children }) => {
     return nextUser;
   }, []);
 
-  const signup = useCallback(async ({ email, password, fullName }) => {
-    return authApi.signup({ email, password, fullName });
+  const signup = useCallback(async ({ email, password, fullName, deviceId }) => {
+    return authApi.signup({ email, password, fullName, deviceId });
   }, []);
+
+  const verifyEmail = useCallback(async ({ email, otp }) => {
+    const { user: nextUser, accessToken, message } = await authApi.verifyEmail({ email, otp });
+    if (accessToken && nextUser) {
+      localStorage.setItem('stravo_access_token', accessToken);
+      localStorage.setItem('stravo_user', JSON.stringify(nextUser));
+      setUser(nextUser);
+    }
+    return { user: nextUser, message };
+  }, []);
+
+  const resendVerification = useCallback((email) => authApi.resendVerification(email), []);
 
   const logout = useCallback(async () => {
     await authApi.logout().catch(() => {});
@@ -57,6 +69,8 @@ export const AuthProvider = ({ children }) => {
       loading,
       login,
       signup,
+      verifyEmail,
+      resendVerification,
       logout,
       isAuthenticated: !!user,
       isDashboardEnabled,

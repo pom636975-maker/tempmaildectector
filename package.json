@@ -7,6 +7,7 @@
     "dev": "vite",
     "api": "node server/index.mjs",
     "dev:full": "node server/index.mjs",
+    "sync:disposable-domains": "node tools/sync-disposable-domains.mjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
