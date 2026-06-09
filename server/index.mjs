@@ -357,7 +357,8 @@ function send(res, status, body, extraHeaders = {}) {
 async function requireUser(req) {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   if (!token) throw Object.assign(new Error('Authentication required'), { status: 401 });
-  const client = createClient({ baseUrl: INSFORGE_URL, anonKey: INSFORGE_ANON_KEY, token });
+  const client = createClient({ baseUrl: INSFORGE_URL, anonKey: INSFORGE_ANON_KEY });
+  client.setAccessToken(token);
   const { data, error } = await client.auth.getCurrentUser();
   const currentUser = authUserFrom(data);
   if (error || !currentUser) throw Object.assign(new Error('Authentication required'), { status: 401 });
