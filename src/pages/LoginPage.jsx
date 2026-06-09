@@ -26,7 +26,7 @@ function getDeviceFingerprint() {
 }
 
 export default function LoginPage() {
-  const { login, signup, verifyEmail, resendVerification, loginWithProvider, authError } = useAuth();
+  const { login, signup, verifyEmail, resendVerification, loginWithProvider, authError, isAuthenticated, isDashboardEnabled } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -55,11 +55,15 @@ export default function LoginPage() {
   }, [authError]);
 
   useEffect(() => {
+    if (isAuthenticated && isDashboardEnabled) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
     if (sessionStorage.getItem('stravo_oauth_complete') === '1') {
       sessionStorage.removeItem('stravo_oauth_complete');
       navigate('/dashboard', { replace: true });
     }
-  }, [navigate]);
+  }, [isAuthenticated, isDashboardEnabled, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
