@@ -5,6 +5,11 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
+    const token = localStorage.getItem('stravo_access_token');
+    if (!token) {
+      localStorage.removeItem('stravo_user');
+      return null;
+    }
     const stored = localStorage.getItem('stravo_user');
     return stored ? JSON.parse(stored) : null;
   });
@@ -30,8 +35,15 @@ export const AuthProvider = ({ children }) => {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const handleAuthExpired = () => setUser(null);
+    window.addEventListener('stravo:auth-expired', handleAuthExpired);
+    return () => window.removeEventListener('stravo:auth-expired', handleAuthExpired);
+  }, []);
+
   const login = useCallback(async (email, password) => {
     const { user: nextUser, accessToken } = await authApi.login({ email, password });
+    if (!accessToken || !nextUser) throw new Error('Login did not return a valid session. Please try again.');
     localStorage.setItem('stravo_access_token', accessToken);
     localStorage.setItem('stravo_user', JSON.stringify(nextUser));
     setUser(nextUser);
@@ -62,6 +74,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const isDashboardEnabled = !!user && user.account_status === 'active' && user.email_verified !== false;
+  const hasSession = !!localStorage.getItem('stravo_access_token');
 
   return (
     <AuthContext.Provider value={{
@@ -72,8 +85,8 @@ export const AuthProvider = ({ children }) => {
       verifyEmail,
       resendVerification,
       logout,
-      isAuthenticated: !!user,
-      isDashboardEnabled,
+      isAuthenticated: hasSession && !!user,
+      isDashboardEnabled: hasSession && isDashboardEnabled,
     }}>
       {children}
     </AuthContext.Provider>

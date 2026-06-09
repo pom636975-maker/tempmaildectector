@@ -12,7 +12,16 @@ async function request(path, options = {}) {
   });
 
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.message || body.error || 'Request failed');
+  if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('stravo_access_token');
+      localStorage.removeItem('stravo_user');
+      window.dispatchEvent(new CustomEvent('stravo:auth-expired'));
+    }
+    const error = new Error(body.message || body.error || 'Request failed');
+    error.status = res.status;
+    throw error;
+  }
   return body;
 }
 

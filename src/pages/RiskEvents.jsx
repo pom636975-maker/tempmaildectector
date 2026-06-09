@@ -6,8 +6,19 @@ export default function RiskEvents() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ decision: 'ALL', search: '' });
   const [selected, setSelected] = useState(null);
+  const [error, setError] = useState('');
 
-  useEffect(() => { getRiskEvents().then(e => { setEvents(e); setLoading(false); }); }, []);
+  useEffect(() => {
+    getRiskEvents()
+      .then(e => {
+        setEvents(e);
+        setError('');
+      })
+      .catch(err => {
+        setError(err.message || 'Could not load risk events.');
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = events.filter(e => {
     if (filter.decision !== 'ALL' && e.decision !== filter.decision) return false;
@@ -111,6 +122,8 @@ export default function RiskEvents() {
           <div className="flex items-center justify-center py-24">
             <div className="w-8 h-8 border-2 border-secondary border-t-transparent rounded-full animate-spin" />
           </div>
+        ) : error ? (
+          <div className="px-8 py-10 text-status-risk font-medium">{error}</div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-on-surface-variant">
             <span className="material-symbols-outlined text-[48px] mb-4 opacity-30">shield</span>
