@@ -365,12 +365,17 @@ async function requireUser(req) {
 }
 
 async function upsertProfile(user) {
+  const providers = Array.isArray(user.providers) ? user.providers : [];
+  const providerVerified = providers.some((provider) => {
+    const value = typeof provider === 'string' ? provider : provider?.provider || provider?.name || provider?.id || '';
+    return ['google', 'github'].includes(String(value).toLowerCase());
+  });
   const profile = {
     id: user.id,
     email: user.email,
     full_name: user.name || user.profile?.full_name || user.email?.split('@')[0],
     avatar_url: user.profile?.avatar_url || '',
-    email_verified: user.emailVerified !== false,
+    email_verified: providerVerified || user.emailVerified !== false,
     account_status: 'active',
     updated_at: now(),
   };

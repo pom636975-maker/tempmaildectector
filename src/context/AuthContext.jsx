@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { authApi } from '../services/api';
-import { getInsForgeAccessToken, hadInitialOAuthCallback, insforgeBrowserClient } from '../services/insforgeClient';
+import { getInsForgeAccessToken, hadInitialOAuthCallback, initialOAuthError, insforgeBrowserClient } from '../services/insforgeClient';
 
 const AuthContext = createContext(null);
 
@@ -21,6 +21,7 @@ export const AuthProvider = ({ children }) => {
     async function syncSession() {
       try {
         setAuthError('');
+        if (initialOAuthError) throw new Error(`OAuth failed: ${initialOAuthError}`);
         let token = localStorage.getItem('stravo_access_token');
         let completedOAuth = false;
 
