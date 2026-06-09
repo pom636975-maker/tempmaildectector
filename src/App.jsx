@@ -28,7 +28,8 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const PublicRoute = ({ children }) => {
-  const { isAuthenticated, isDashboardEnabled } = useAuth();
+  const { isAuthenticated, isDashboardEnabled, loading } = useAuth();
+  if (loading) return null;
   return !isAuthenticated || !isDashboardEnabled ? children : <Navigate to="/dashboard" replace />;
 };
 

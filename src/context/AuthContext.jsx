@@ -15,10 +15,12 @@ export const AuthProvider = ({ children }) => {
     return stored ? JSON.parse(stored) : null;
   });
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState('');
 
   useEffect(() => {
     async function syncSession() {
       try {
+        setAuthError('');
         const params = new URLSearchParams(window.location.search);
         const hasOAuthCode = params.has('insforge_code');
 
@@ -39,9 +41,11 @@ export const AuthProvider = ({ children }) => {
         const { user: currentUser } = await authApi.me();
         setUser(currentUser);
         localStorage.setItem('stravo_user', JSON.stringify(currentUser));
-      } catch {
+        if (hasOAuthCode) sessionStorage.setItem('stravo_oauth_complete', '1');
+      } catch (err) {
         localStorage.removeItem('stravo_access_token');
         localStorage.removeItem('stravo_user');
+        setAuthError(err.message || 'Authentication failed. Please sign in again.');
         setUser(null);
       } finally {
         setLoading(false);
@@ -62,6 +66,7 @@ export const AuthProvider = ({ children }) => {
     if (!accessToken || !nextUser) throw new Error('Login did not return a valid session. Please try again.');
     localStorage.setItem('stravo_access_token', accessToken);
     localStorage.setItem('stravo_user', JSON.stringify(nextUser));
+    setAuthError('');
     setUser(nextUser);
     return nextUser;
   }, []);
@@ -75,6 +80,7 @@ export const AuthProvider = ({ children }) => {
     if (accessToken && nextUser) {
       localStorage.setItem('stravo_access_token', accessToken);
       localStorage.setItem('stravo_user', JSON.stringify(nextUser));
+      setAuthError('');
       setUser(nextUser);
     }
     return { user: nextUser, message };
@@ -108,6 +114,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{
       user,
       loading,
+      authError,
       login,
       signup,
       verifyEmail,
