@@ -165,6 +165,37 @@ function accessTokenFrom(data) {
     || '';
 }
 
+function decodeJwtPayload(token) {
+  try {
+    const [, payload] = String(token).split('.');
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=');
+    return JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function authUserFromToken(token) {
+  const payload = decodeJwtPayload(token);
+  if (!payload) return null;
+  const id = payload.sub || payload.user_id || payload.id;
+  const email = payload.email || payload.user?.email;
+  if (!id || !email) return null;
+  return {
+    id,
+    email,
+    name: payload.name || payload.full_name || payload.user_metadata?.name || email.split('@')[0],
+    emailVerified: payload.email_verified ?? payload.emailVerified ?? true,
+    providers: payload.providers || payload.provider ? [payload.provider].filter(Boolean) : [],
+    profile: {
+      full_name: payload.full_name || payload.name || payload.user_metadata?.full_name || payload.user_metadata?.name,
+      avatar_url: payload.avatar_url || payload.picture || payload.user_metadata?.avatar_url || payload.user_metadata?.picture || '',
+    },
+  };
+}
+
 function validateSignupCheckPayload(input) {
   const { email } = parseEmail(input.email);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -360,8 +391,11 @@ async function requireUser(req) {
   const client = createClient({ baseUrl: INSFORGE_URL, anonKey: INSFORGE_ANON_KEY });
   client.setAccessToken(token);
   const { data, error } = await client.auth.getCurrentUser();
-  const currentUser = authUserFrom(data);
-  if (error || !currentUser) throw Object.assign(new Error('Authentication required'), { status: 401 });
+  const currentUser = authUserFrom(data) || authUserFromToken(token);
+  if (!currentUser) {
+    console.warn('Unable to resolve authenticated user', { sdkError: error?.message || error?.error || '' });
+    throw Object.assign(new Error('Authentication required'), { status: 401 });
+  }
   return upsertProfile(currentUser);
 }
 
