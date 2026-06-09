@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { authApi } from '../services/api';
+import { getInsForgeAccessToken, insforgeBrowserClient } from '../services/insforgeClient';
 
 const AuthContext = createContext(null);
 
@@ -16,23 +17,38 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('stravo_access_token');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    async function syncSession() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const hasOAuthCode = params.has('insforge_code');
 
-    authApi.me()
-      .then(({ user: currentUser }) => {
+        if (hasOAuthCode) {
+          const { data, error } = await insforgeBrowserClient.auth.getCurrentUser();
+          if (error) throw new Error(error.message);
+          const oauthToken = getInsForgeAccessToken();
+          if (!oauthToken || !data?.user) throw new Error('Google sign-in did not return a valid session.');
+          localStorage.setItem('stravo_access_token', oauthToken);
+        }
+
+        const token = localStorage.getItem('stravo_access_token');
+        if (!token) {
+          setUser(null);
+          return;
+        }
+
+        const { user: currentUser } = await authApi.me();
         setUser(currentUser);
         localStorage.setItem('stravo_user', JSON.stringify(currentUser));
-      })
-      .catch(() => {
+      } catch {
         localStorage.removeItem('stravo_access_token');
         localStorage.removeItem('stravo_user');
         setUser(null);
-      })
-      .finally(() => setLoading(false));
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    syncSession();
   }, []);
 
   useEffect(() => {
@@ -66,6 +82,18 @@ export const AuthProvider = ({ children }) => {
 
   const resendVerification = useCallback((email) => authApi.resendVerification(email), []);
 
+  const loginWithProvider = useCallback(async (provider) => {
+    const redirectTo = `${window.location.origin}/login`;
+    const { data, error } = await insforgeBrowserClient.auth.signInWithOAuth(provider, {
+      redirectTo,
+      additionalParams: { prompt: 'select_account' },
+      skipBrowserRedirect: true,
+    });
+    if (error) throw new Error(error.message);
+    if (!data?.url) throw new Error(`${provider} sign-in URL was not returned by InsForge.`);
+    window.location.href = data.url;
+  }, []);
+
   const logout = useCallback(async () => {
     await authApi.logout().catch(() => {});
     localStorage.removeItem('stravo_access_token');
@@ -84,6 +112,7 @@ export const AuthProvider = ({ children }) => {
       signup,
       verifyEmail,
       resendVerification,
+      loginWithProvider,
       logout,
       isAuthenticated: hasSession && !!user,
       isDashboardEnabled: hasSession && isDashboardEnabled,

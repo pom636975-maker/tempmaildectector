@@ -26,7 +26,7 @@ function getDeviceFingerprint() {
 }
 
 export default function LoginPage() {
-  const { login, signup, verifyEmail, resendVerification } = useAuth();
+  const { login, signup, verifyEmail, resendVerification, loginWithProvider } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -88,6 +88,18 @@ export default function LoginPage() {
     } catch (err) {
       setError(err.message);
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOAuthLogin = async (provider) => {
+    setError('');
+    setNotice('');
+    setLoading(true);
+    try {
+      await loginWithProvider(provider);
+    } catch (err) {
+      setError(err.message);
       setLoading(false);
     }
   };
@@ -352,6 +364,8 @@ export default function LoginPage() {
             <button 
               className="flex items-center justify-center gap-2 h-11 border border-login-outline-variant rounded-lg hover:bg-login-surface-container-low transition-colors active:scale-[0.98] cursor-pointer"
               type="button"
+              disabled={loading}
+              onClick={() => handleOAuthLogin('google')}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
@@ -364,6 +378,8 @@ export default function LoginPage() {
             <button 
               className="flex items-center justify-center gap-2 h-11 border border-login-outline-variant rounded-lg hover:bg-login-surface-container-low transition-colors active:scale-[0.98] cursor-pointer"
               type="button"
+              disabled={loading}
+              onClick={() => handleOAuthLogin('github')}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path d="M12 1.27a11 11 0 00-3.48 21.46c.55.09.73-.24.73-.53v-1.84c-3.03.66-3.67-1.46-3.67-1.46-.5-1.24-1.21-1.58-1.21-1.58-1-1.37.08-1.35.08-1.35 1.1.07 1.69 1.14 1.69 1.14 1 1.7 2.6 1.2 3.23.92.1-.71.39-1.2.7-1.48-2.42-.28-4.97-1.21-4.97-5.39 0-1.19.43-2.16 1.13-2.93-.11-.27-.49-1.38.11-2.89 0 0 .91-.29 3 1.12.87-.24 1.79-.36 2.71-.37.92 0 1.84.13 2.71.37 2.09-1.41 3-1.12 3-1.12.6 1.5.22 2.61.11 2.89.71.77 1.13 1.74 1.13 2.93 0 4.19-2.55 5.1-4.98 5.37.39.34.73 1.01.73 2.03v3.01c0 .3.18.63.74.52A11 11 0 0012 1.27z" fill="#181717"></path>
