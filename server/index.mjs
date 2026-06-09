@@ -6,13 +6,13 @@ import { createAdminClient, createClient } from '@insforge/sdk';
 
 const PORT = Number(process.env.PORT || 8787);
 const INSFORGE_URL = process.env.INSFORGE_URL || 'https://hp7mm277.us-east.insforge.app';
-const INSFORGE_API_KEY = process.env.INSFORGE_API_KEY;
-const INSFORGE_ANON_KEY = process.env.INSFORGE_ANON_KEY || '';
+const INSFORGE_API_KEY = process.env.INSFORGE_API_KEY || process.env.API_KEY;
+const INSFORGE_ANON_KEY = process.env.INSFORGE_ANON_KEY || process.env.ANON_KEY || '';
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 const MAX_JSON_BYTES = Number(process.env.MAX_JSON_BYTES || 64 * 1024);
 
 if (!INSFORGE_API_KEY) {
-  console.warn('INSFORGE_API_KEY is not set. Backend DB requests will fail until it is provided.');
+  console.warn('INSFORGE_API_KEY/API_KEY is not set. Backend DB requests will fail until it is provided.');
 }
 
 const admin = createAdminClient({ baseUrl: INSFORGE_URL, apiKey: INSFORGE_API_KEY || 'missing' });
@@ -146,7 +146,23 @@ async function inspectDomain(domain) {
 }
 
 function authUserFrom(data) {
-  return data?.user || data?.data?.user || (data?.id && data?.email ? data : null);
+  return data?.user
+    || data?.data?.user
+    || data?.session?.user
+    || data?.data?.session?.user
+    || (data?.id && data?.email ? data : null);
+}
+
+function accessTokenFrom(data) {
+  return data?.accessToken
+    || data?.access_token
+    || data?.data?.accessToken
+    || data?.data?.access_token
+    || data?.session?.accessToken
+    || data?.session?.access_token
+    || data?.data?.session?.accessToken
+    || data?.data?.session?.access_token
+    || '';
 }
 
 function validateSignupCheckPayload(input) {
@@ -645,7 +661,7 @@ export async function router(req, res) {
       const { data, error } = await publicClient.auth.verifyEmail({ email, otp });
       if (error) throw Object.assign(new Error(error.message), { status: error.statusCode || 400 });
       const verifiedUser = authUserFrom(data);
-      const accessToken = data?.accessToken || data?.data?.accessToken;
+      const accessToken = accessTokenFrom(data);
       if (!verifiedUser || !accessToken) throw Object.assign(new Error('Email verified. Please sign in to continue.'), { status: 202 });
       const profile = await upsertProfile({ ...verifiedUser, emailVerified: true });
       await ensureUserContext(profile);
@@ -665,7 +681,7 @@ export async function router(req, res) {
       const profile = await upsertProfile(signedInUser);
       if (profile.account_status !== 'active' || profile.email_verified === false) throw Object.assign(new Error('Dashboard access requires an active, verified account.'), { status: 403 });
       await ensureUserContext(profile);
-      return send(res, 200, { user: profile, accessToken: data.accessToken || data?.data?.accessToken });
+      return send(res, 200, { user: profile, accessToken: accessTokenFrom(data) });
     }
 
     if (url.pathname === '/api/auth/logout') return send(res, 200, { ok: true });
