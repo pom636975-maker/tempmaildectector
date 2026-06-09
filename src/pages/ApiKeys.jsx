@@ -8,11 +8,16 @@ export default function ApiKeys() {
   const [creating, setCreating] = useState(false);
   const [newKey, setNewKey] = useState(null);
   const [copied, setCopied] = useState(null);
+  const [error, setError] = useState('');
 
   const fetchKeys = () => {
     setLoading(true);
     getApiKeys().then(data => {
       setKeys(data);
+      setError('');
+      setLoading(false);
+    }).catch(err => {
+      setError(err.message || 'Could not load API keys.');
       setLoading(false);
     });
   };
@@ -24,6 +29,7 @@ export default function ApiKeys() {
   const handleCreate = async () => {
     if (!newName.trim()) return;
     setCreating(true);
+    setError('');
     try {
       const k = await createApiKey(newName);
       setKeys(prev => [k, ...prev]);
@@ -31,6 +37,7 @@ export default function ApiKeys() {
       setNewName('');
     } catch (err) {
       console.error(err);
+      setError(err.message || 'Could not create API key.');
     } finally {
       setCreating(false);
     }
@@ -121,6 +128,11 @@ export default function ApiKeys() {
           <h3 className="font-headline-sm text-[18px]">Create New API Key</h3>
         </div>
         <div className="p-8">
+          {error && (
+            <div className="mb-4 rounded-lg border border-status-risk/30 bg-status-risk/5 px-4 py-3 text-sm font-medium text-status-risk">
+              {error}
+            </div>
+          )}
           <div className="flex gap-3">
             <input
               className="flex-1 h-11 bg-surface-container-low border border-border-subtle px-4 rounded-lg text-code-sm focus:outline-none focus:ring-1 focus:ring-secondary transition-all"

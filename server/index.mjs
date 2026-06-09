@@ -359,8 +359,9 @@ async function requireUser(req) {
   if (!token) throw Object.assign(new Error('Authentication required'), { status: 401 });
   const client = createClient({ baseUrl: INSFORGE_URL, anonKey: INSFORGE_ANON_KEY, token });
   const { data, error } = await client.auth.getCurrentUser();
-  if (error || !data?.user) throw Object.assign(new Error('Authentication required'), { status: 401 });
-  return upsertProfile(data.user);
+  const currentUser = authUserFrom(data);
+  if (error || !currentUser) throw Object.assign(new Error('Authentication required'), { status: 401 });
+  return upsertProfile(currentUser);
 }
 
 async function upsertProfile(user) {
@@ -428,6 +429,33 @@ async function ensureUserContext(user) {
   }
 
   return { user, workspace, project };
+}
+
+function apiKeyResponse(row, rawKey = '') {
+  const { key_hash, ...safeRow } = row;
+  const environment = safeRow.environment || safeRow.env || 'live';
+  return {
+    ...safeRow,
+    key: rawKey || safeRow.key_prefix || '',
+    key_preview: safeRow.key_prefix || '',
+    environment,
+    env: environment,
+    calls: safeRow.usage_count || safeRow.calls || 0,
+    lastUsed: safeRow.last_used_at ? safeRow.last_used_at.slice(0, 10) : 'Never',
+  };
+}
+
+async function insertApiKey(row) {
+  const tableRef = await table('api_keys');
+  let result = await tableRef.insert([row]).select();
+  if (!result.error) return result;
+
+  const message = result.error.message || '';
+  if (!/environment/i.test(message)) return result;
+
+  const { environment, ...fallbackRow } = row;
+  result = await (await table('api_keys')).insert([{ ...fallbackRow, env: environment }]).select();
+  return result;
 }
 
 async function createDefaultProjectData(projectId) {
@@ -730,15 +758,15 @@ export async function router(req, res) {
     if (url.pathname === '/api/api-keys' && req.method === 'GET') {
       const { data: rows, error } = await (await table('api_keys')).select('*').eq('project_id', project.id).order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
-      return send(res, 200, rows.map(({ key_hash, ...row }) => row));
+      return send(res, 200, rows.map((row) => apiKeyResponse(row)));
     }
     if (url.pathname === '/api/api-keys' && req.method === 'POST') {
       const environment = body.environment || 'live';
       const raw = `sk_stravo_${environment}_${crypto.randomBytes(18).toString('hex')}`;
       const row = { id: id('key'), project_id: project.id, name: body.name || 'New key', key_hash: hash(raw), key_prefix: raw.slice(0, 20), environment, status: 'active', scopes: body.scopes || ['signup:check'] };
-      const { data, error } = await (await table('api_keys')).insert([row]).select();
+      const { data, error } = await insertApiKey(row);
       if (error) throw new Error(error.message);
-      return send(res, 201, { ...data[0], key: raw, key_hash: undefined });
+      return send(res, 201, apiKeyResponse(data[0], raw));
     }
     if (url.pathname.startsWith('/api/api-keys/') && ['DELETE', 'PATCH'].includes(req.method)) {
       return send(res, 200, await patchProjectRow('api_keys', url.pathname.split('/').pop(), project.id, { status: 'revoked' }));
