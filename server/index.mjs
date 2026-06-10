@@ -342,7 +342,14 @@ async function scoreSignup(input, internal = false) {
   if (internal && recentInternalByIp.filter((event) => Date.parse(event.created_at) > twoMinutesAgo).length >= 5) add(30, 'ip_velocity_2m');
   if (internal && recentInternalByIp.filter((event) => Date.parse(event.created_at) > tenMinutesAgo).length >= 20) add(55, 'ip_velocity_10m');
   if (internal && recentInternalByIp.filter((event) => Date.parse(event.created_at) > oneHourAgo).length >= 3) add(20, 'repeat_ip');
-  if (deviceId && recentEvents.filter((event) => event.device_id === deviceId && event.email !== email).length >= 2) add(35, 'same_device_multiple_accounts');
+  const recentDeviceEvents = deviceId
+    ? recentEvents.filter((event) => (
+      event.device_id === deviceId
+      && event.email !== email
+      && Date.parse(event.created_at) > oneHourAgo
+    ))
+    : [];
+  if (recentDeviceEvents.length >= 5) add(35, 'same_device_multiple_accounts');
   const series = emailSeriesKey(email);
   const seriesEvents = recentEvents.filter((event) => emailSeriesKey(event.email) === series && event.email !== email && Date.parse(event.created_at) > threeMinutesAgo);
   const seriesInternal = recentInternal.filter((event) => emailSeriesKey(event.email) === series && event.email !== email && Date.parse(event.created_at) > threeMinutesAgo);
