@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getApiKeys, createApiKey, deleteApiKey } from '../services/api';
+import { getApiKeys, createApiKey, deleteApiKey, getBillingUsage } from '../services/api';
 
 export default function ApiKeys() {
   const [keys, setKeys] = useState([]);
@@ -9,11 +9,13 @@ export default function ApiKeys() {
   const [newKey, setNewKey] = useState(null);
   const [copied, setCopied] = useState(null);
   const [error, setError] = useState('');
+  const [billing, setBilling] = useState(null);
 
   const fetchKeys = () => {
     setLoading(true);
-    getApiKeys().then(data => {
+    Promise.all([getApiKeys(), getBillingUsage()]).then(([data, usage]) => {
       setKeys(data);
+      setBilling(usage);
       setError('');
       setLoading(false);
     }).catch(err => {
@@ -62,6 +64,10 @@ export default function ApiKeys() {
 
   const activeKeys  = keys.filter(k => k.status === 'active').length;
   const totalCalls  = keys.reduce((s, k) => s + (k.calls || 0), 0);
+  const monthlyUsed = Number(billing?.checks_used ?? totalCalls);
+  const monthlyLimit = Number(billing?.monthly_limit ?? 10000);
+  const usagePct = monthlyLimit > 0 ? Math.min(100, Math.round((monthlyUsed / monthlyLimit) * 100)) : 0;
+  const usageLabel = `${monthlyUsed.toLocaleString()} of ${monthlyLimit.toLocaleString()} calls used`;
   const apiEndpoint = 'https://tempmaildector.vercel.app/api/v1/check-signup';
   const exampleKey = newKey || 'YOUR_STRAVOTECH_API_KEY';
   const curlExample = `curl -X POST ${apiEndpoint} \\
@@ -106,13 +112,13 @@ if (risk.action === "BLOCK") {
               <span className="inline-block w-2 h-2 rounded-full bg-status-protected animate-pulse" />
               <span className="font-label-caps text-label-caps text-status-protected">API Optimal</span>
             </div>
-            <h2 className="font-headline-md text-headline-md mb-2">8,429 of 10,000 calls used</h2>
-            <p className="text-on-surface-variant text-body-lg mb-6 max-w-md">You're at 84% usage this month. Error rate is 0.2% — well within healthy range.</p>
+            <h2 className="font-headline-md text-headline-md mb-2">{usageLabel}</h2>
+            <p className="text-on-surface-variant text-body-lg mb-6 max-w-md">You're at {usagePct}% usage this month. API checks update here after every protected signup call.</p>
             <div className="w-72 h-2 bg-surface-container rounded-full overflow-hidden">
-              <div className="bg-secondary h-full w-[84%]" />
+              <div className="bg-secondary h-full transition-all" style={{ width: `${usagePct}%` }} />
             </div>
             <div className="flex justify-between mt-2 text-[10px] font-label-caps text-on-surface-variant w-72">
-              <span>0</span><span className="text-secondary font-bold">84%</span><span>10,000</span>
+              <span>0</span><span className="text-secondary font-bold">{usagePct}%</span><span>{monthlyLimit.toLocaleString()}</span>
             </div>
           </div>
           <div className="p-4 bg-secondary/10 rounded-xl">
@@ -130,7 +136,7 @@ if (risk.action === "BLOCK") {
         <div className="col-span-12 lg:col-span-4 flex flex-col gap-4">
           {[
             { label: 'Active Keys',     value: activeKeys,              delta: 'Live',        deltaColor: 'text-status-protected', barColor: 'bg-status-protected', barW: `${(activeKeys / Math.max(keys.length,1))*100}%` },
-            { label: 'Total API Calls', value: totalCalls.toLocaleString(), delta: 'This month', deltaColor: 'text-secondary',        barColor: 'bg-secondary',        barW: '84%' },
+            { label: 'Total API Calls', value: totalCalls.toLocaleString(), delta: 'All keys', deltaColor: 'text-secondary',        barColor: 'bg-secondary',        barW: `${usagePct}%` },
           ].map(({ label, value, delta, deltaColor, barColor, barW }) => (
             <div key={label} className="flex-1 bg-white border border-border-subtle p-6 rounded-xl metric-card-hover transition-all">
               <p className="font-label-caps text-[10px] text-on-surface-variant mb-4 uppercase tracking-wider">{label}</p>
