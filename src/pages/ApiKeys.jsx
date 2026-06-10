@@ -62,6 +62,30 @@ export default function ApiKeys() {
 
   const activeKeys  = keys.filter(k => k.status === 'active').length;
   const totalCalls  = keys.reduce((s, k) => s + (k.calls || 0), 0);
+  const apiEndpoint = 'https://tempmaildector.vercel.app/api/v1/check-signup';
+  const exampleKey = newKey || 'YOUR_STRAVOTECH_API_KEY';
+  const curlExample = `curl -X POST ${apiEndpoint} \\
+  -H "Authorization: Bearer ${exampleKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"email":"newuser@example.com","ip":"203.0.113.42","deviceId":"device_123","userAgent":"Mozilla/5.0"}'`;
+  const nodeExample = `const response = await fetch("${apiEndpoint}", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer ${exampleKey}",
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    email: user.email,
+    ip: requestIp,
+    deviceId: deviceFingerprint,
+    userAgent: req.headers["user-agent"]
+  })
+});
+
+const risk = await response.json();
+if (risk.action === "BLOCK") {
+  throw new Error("Signup blocked by STRAVOTECH");
+}`;
 
   return (
     <div>
@@ -119,6 +143,67 @@ export default function ApiKeys() {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="bg-white border border-border-subtle rounded-xl overflow-hidden mb-6">
+        <div className="px-8 py-6 border-b border-border-subtle flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="font-headline-sm text-[18px]">Use STRAVOTECH in your website</h3>
+            <p className="text-on-surface-variant text-code-sm mt-1">Call this API from your backend before creating a user account or giving free credits.</p>
+          </div>
+          <span className="px-3 py-1 rounded-lg bg-status-protected/10 text-status-protected border border-status-protected/20 font-label-caps text-[10px]">
+            Server-side only
+          </span>
+        </div>
+        <div className="p-8 grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="grid grid-cols-[120px_1fr] gap-3 text-code-sm">
+              <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">Endpoint</span>
+              <code className="break-all bg-surface-container-low px-3 py-2 rounded-lg border border-border-subtle">{apiEndpoint}</code>
+              <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">Method</span>
+              <code className="bg-surface-container-low px-3 py-2 rounded-lg border border-border-subtle">POST</code>
+              <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">Header</span>
+              <code className="break-all bg-surface-container-low px-3 py-2 rounded-lg border border-border-subtle">Authorization: Bearer YOUR_API_KEY</code>
+            </div>
+            <div className="rounded-xl border border-border-subtle bg-surface-container-low p-5">
+              <p className="font-label-caps text-[10px] text-on-surface-variant uppercase mb-3">Decision logic</p>
+              <div className="space-y-2 text-code-sm">
+                <p><span className="font-bold text-status-protected">ALLOW</span> - continue signup normally.</p>
+                <p><span className="font-bold text-status-warning">REVIEW</span> - hold credits/access until manual approval.</p>
+                <p><span className="font-bold text-status-risk">BLOCK</span> - stop signup and show a safe error.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-[#111827] rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2 bg-[#1f2937]">
+                <span className="text-[10px] font-mono text-gray-300">Node.js signup gate</span>
+                <button
+                  onClick={() => copyKey(nodeExample, 'node-example')}
+                  className="text-[10px] font-bold text-white/80 hover:text-white"
+                  type="button"
+                >
+                  {copied === 'node-example' ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <pre className="p-4 overflow-x-auto text-[12px] leading-5 text-gray-200"><code>{nodeExample}</code></pre>
+            </div>
+            <div className="bg-[#111827] rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2 bg-[#1f2937]">
+                <span className="text-[10px] font-mono text-gray-300">cURL test</span>
+                <button
+                  onClick={() => copyKey(curlExample, 'curl-example')}
+                  className="text-[10px] font-bold text-white/80 hover:text-white"
+                  type="button"
+                >
+                  {copied === 'curl-example' ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <pre className="p-4 overflow-x-auto text-[12px] leading-5 text-gray-200"><code>{curlExample}</code></pre>
+            </div>
+          </div>
         </div>
       </div>
 
