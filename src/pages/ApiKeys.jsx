@@ -68,7 +68,7 @@ export default function ApiKeys() {
   const monthlyLimit = Number(billing?.monthly_limit ?? 10000);
   const usagePct = monthlyLimit > 0 ? Math.min(100, Math.round((monthlyUsed / monthlyLimit) * 100)) : 0;
   const usageLabel = `${monthlyUsed.toLocaleString()} of ${monthlyLimit.toLocaleString()} calls used`;
-  const apiEndpoint = 'https://tempmaildector.vercel.app/api/v1/check-signup';
+  const apiEndpoint = 'https://stravotech.in/api/v1/check-signup';
   const exampleKey = newKey || 'YOUR_STRAVOTECH_API_KEY';
   const curlExample = `curl -X POST ${apiEndpoint} \\
   -H "Authorization: Bearer ${exampleKey}" \\

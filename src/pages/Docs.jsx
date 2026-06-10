@@ -22,7 +22,7 @@ export default function Docs() {
             </div>
             <pre className="p-4 overflow-x-auto">
               <code className="text-[12px] font-mono text-gray-300">
-                <span className="text-pink-400">curl</span> -X POST https://tempmaildector.vercel.app/api/v1/check-signup \<br/>
+                <span className="text-pink-400">curl</span> -X POST https://stravotech.in/api/v1/check-signup \<br/>
                 {'  '}-H <span className="text-green-300">"Authorization: Bearer YOUR_API_KEY"</span> \<br/>
                 {'  '}-H <span className="text-green-300">"Content-Type: application/json"</span> \<br/>
                 {'  '}-d <span className="text-yellow-300">'{'{'}"email": "user@example.com", "ip": "192.168.1.1", "deviceId": "device_123"{'}'}'</span>

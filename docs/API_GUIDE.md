@@ -113,7 +113,7 @@ BLOCK  - reject the signup before account creation and do not grant product acce
 
 ```js
 async function checkSignupRisk({ email, ip, deviceId, userAgent }) {
-  const response = await fetch('http://localhost:8787/api/v1/check-signup', {
+  const response = await fetch('https://stravotech.in/api/v1/check-signup', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -157,7 +157,7 @@ if (risk.action === 'REVIEW') {
 
 ```js
 app.post('/signup', async (req, res) => {
-  const risk = await fetch('http://localhost:8787/api/v1/check-signup', {
+  const risk = await fetch('https://stravotech.in/api/v1/check-signup', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
