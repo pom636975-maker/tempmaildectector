@@ -21,6 +21,8 @@ const publicClient = createClient({ baseUrl: INSFORGE_URL, anonKey: INSFORGE_ANO
 const freeProviders = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com'];
 const protectedAreas = ['ai_credits', 'crm', 'email_list', 'analytics'];
 const mxCache = new Map();
+const lookupCache = new Map();
+const LOOKUP_CACHE_MS = 5 * 60 * 1000;
 const disposableDomainHints = [
   '10minute', '20minute', 'temp-mail', 'tempmail', 'throwaway', 'trashmail',
   'guerrilla', 'guerrillamail', 'maildrop', 'mailinator', 'yopmail',
@@ -125,6 +127,9 @@ function domainCandidates(domain) {
 }
 
 async function hasDomainRow(tableName, domain, column = 'domain') {
+  const cacheKey = `${tableName}:${column}:${domain}`;
+  const cached = lookupCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
   const candidates = domainCandidates(domain);
   if (!candidates.length) return false;
   const checks = await Promise.all(candidates.map(async (candidate) => {
@@ -132,7 +137,9 @@ async function hasDomainRow(tableName, domain, column = 'domain') {
     if (error) throw new Error(error.message);
     return Boolean(data?.length);
   }));
-  return checks.some(Boolean);
+  const value = checks.some(Boolean);
+  lookupCache.set(cacheKey, { value, expiresAt: Date.now() + LOOKUP_CACHE_MS });
+  return value;
 }
 
 function hasDisposableDomainHint(domain) {
@@ -187,6 +194,14 @@ async function inspectDomain(domain) {
 
   mxCache.set(domain, { value, expiresAt: Date.now() + 6 * 60 * 60 * 1000 });
   return value;
+}
+
+function knownDomainIntel(domain) {
+  if (freeProviders.includes(domain)) return { hasMx: true, mxHosts: [], mxDisposableHint: false };
+  if (isListedDomain(domain, observedDisposableDomains) || hasDisposableDomainHint(domain)) {
+    return { hasMx: true, mxHosts: [], mxDisposableHint: true };
+  }
+  return null;
 }
 
 function authUserFrom(data) {
@@ -321,6 +336,27 @@ async function all(name, orderColumn = 'created_at', ascending = false) {
   return data || [];
 }
 
+async function cachedRows(name, select = '*') {
+  const cacheKey = `rows:${name}:${select}`;
+  const cached = lookupCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const { data, error } = await (await table(name)).select(select);
+  if (error) throw new Error(error.message);
+  const value = data || [];
+  lookupCache.set(cacheKey, { value, expiresAt: Date.now() + LOOKUP_CACHE_MS });
+  return value;
+}
+
+async function recentRows(name, since, select) {
+  const { data, error } = await (await table(name))
+    .select(select)
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
 async function first(name) {
   const rows = await all(name);
   return rows[0] || null;
@@ -337,18 +373,19 @@ async function scoreSignup(input, internal = false) {
   const ip = input.ip || input.ip_address || '';
   const userAgent = input.userAgent || input.user_agent || '';
   const deviceId = input.deviceId || input.device_id || '';
+  const oneHourAgoIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const [isDisposableDomain, isBlockedDomain, isAllowedDomain, blockedIps, allowedIps, recentEvents, recentInternal] = await Promise.all([
     hasDomainRow('disposable_domains', domain),
     hasDomainRow('blocked_domains', domain),
     hasDomainRow('allowed_domains', domain),
-    all('blocked_ips'),
-    all('allowed_ips'),
-    all('risk_events'),
-    all('internal_signup_attempts'),
+    cachedRows('blocked_ips', 'ip_address'),
+    cachedRows('allowed_ips', 'ip_address'),
+    recentRows('risk_events', oneHourAgoIso, 'email,ip_address,device_id,created_at'),
+    recentRows('internal_signup_attempts', oneHourAgoIso, 'email,ip_address,created_at'),
   ]);
 
   const fallbackDisposableDomains = observedDisposableDomains;
-  const domainIntel = await inspectDomain(domain);
+  const domainIntel = knownDomainIntel(domain) || await inspectDomain(domain);
   let riskScore = 0;
   const reasons = [];
   const signalPoints = {};
@@ -847,9 +884,17 @@ export async function router(req, res) {
       if (billing.checks_used >= billing.monthly_limit) throw Object.assign(new Error('Billing usage limit reached'), { status: 402 });
       const payload = validateSignupCheckPayload(body);
       const result = await scoreSignup(payload);
-      const event = await saveRiskEvent(payload, result, keyRow, false);
-      await (await table('api_keys')).update({ last_used_at: now(), usage_count: (keyRow.usage_count || 0) + 1 }).eq('id', keyRow.id);
-      await (await table('billing_usage')).update({ checks_used: billing.checks_used + 1, updated_at: now() }).eq('id', billing.id);
+      const [event] = await Promise.all([
+        saveRiskEvent(payload, result, keyRow, false),
+        (async () => {
+          const { error: usageError } = await (await table('api_keys')).update({ last_used_at: now(), usage_count: (keyRow.usage_count || 0) + 1 }).eq('id', keyRow.id);
+          if (usageError) throw new Error(usageError.message);
+        })(),
+        (async () => {
+          const { error: billingUpdateError } = await (await table('billing_usage')).update({ checks_used: billing.checks_used + 1, updated_at: now() }).eq('id', billing.id);
+          if (billingUpdateError) throw new Error(billingUpdateError.message);
+        })(),
+      ]);
       return send(res, 200, { ...result, eventId: event.id });
     }
 
