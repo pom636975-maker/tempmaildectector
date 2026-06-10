@@ -82,7 +82,20 @@ Response:
 {
   "riskScore": 12,
   "action": "ALLOW",
+  "confidence": 78,
   "reasons": ["clean_domain"],
+  "signals": [
+    {
+      "code": "clean_domain",
+      "category": "email",
+      "severity": "trusted",
+      "scoreImpact": 0,
+      "detail": "No meaningful abuse indicators were detected."
+    }
+  ],
+  "summary": "Low-risk signup with no strong abuse indicators.",
+  "recommendation": "Continue signup normally. Keep monitoring post-signup velocity and credit usage.",
+  "nextStep": "create_account",
   "protect": [],
   "eventId": "evt_123"
 }
@@ -92,8 +105,8 @@ Actions:
 
 ```text
 ALLOW  - create the account normally
-REVIEW - hold high-value access and send to manual review
-BLOCK  - reject the signup or require stronger verification
+REVIEW - require verification/CAPTCHA and hold free credits until the challenge succeeds
+BLOCK  - reject the signup before account creation and do not grant product access
 ```
 
 ## Node.js Example

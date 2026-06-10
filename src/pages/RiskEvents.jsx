@@ -205,9 +205,16 @@ export default function RiskEvents() {
                   DECISION: {selected.decision}
                 </span>
                 <p className="text-code-sm text-on-surface mt-2 font-bold break-all">{selected.email}</p>
+                {selected.confidence > 0 && <p className="text-[11px] text-on-surface-variant mt-1">{selected.confidence}% decision confidence</p>}
               </div>
             </div>
             <div className="space-y-5">
+              {selected.recommendation && (
+                <div className="rounded-lg border border-secondary/20 bg-secondary/5 p-4">
+                  <p className="font-label-caps text-[10px] text-secondary mb-2 uppercase tracking-wider">Recommended Action</p>
+                  <p className="text-code-sm leading-6">{selected.recommendation}</p>
+                </div>
+              )}
               {[['IP Address', selected.ip], ['Country', selected.country], ['Device ID', selected.deviceId], ['User Agent', selected.userAgent]].map(([k, v]) => (
                 <div key={k}>
                   <p className="font-label-caps text-[10px] text-on-surface-variant mb-2 uppercase tracking-wider">{k}</p>
@@ -217,8 +224,11 @@ export default function RiskEvents() {
               <div>
                 <p className="font-label-caps text-[10px] text-on-surface-variant mb-2 uppercase tracking-wider">Risk Reasons</p>
                 <div className="flex flex-wrap gap-2">
-                  {selected.reasons.map(r => (
-                    <span key={r} className="px-2.5 py-1 bg-status-risk/10 text-status-risk border border-status-risk/20 rounded-md text-[11px] font-bold">{r}</span>
+                  {(selected.signals?.length ? selected.signals : selected.reasons.map(code => ({ code }))).map(signal => (
+                    <div key={signal.code} className="w-full px-3 py-2 bg-status-risk/5 border border-status-risk/20 rounded-lg">
+                      <p className="text-[11px] font-bold text-status-risk">{signal.code.replace(/_/g, ' ')}</p>
+                      {signal.detail && <p className="text-[11px] text-on-surface-variant mt-1">{signal.detail}</p>}
+                    </div>
                   ))}
                 </div>
               </div>

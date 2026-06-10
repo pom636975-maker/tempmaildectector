@@ -91,7 +91,15 @@ export default function ApiKeys() {
 const risk = await response.json();
 if (risk.action === "BLOCK") {
   throw new Error("Signup blocked by STRAVOTECH");
-}`;
+}
+if (risk.action === "REVIEW") {
+  return requireEmailVerification({
+    holdFreeCredits: true,
+    reason: risk.summary
+  });
+}
+
+return createAccount();`;
 
   return (
     <div>

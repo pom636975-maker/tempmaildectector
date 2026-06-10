@@ -37,7 +37,11 @@ export default function Docs() {
                 {'{'}<br/>
                 {'  '}"riskScore": <span className="text-blue-400">12</span>,<br/>
                 {'  '}"action": <span className="text-green-300">"ALLOW"</span>,<br/>
-                {'  '}"reasons": []<br/>
+                {'  '}"confidence": <span className="text-blue-400">78</span>,<br/>
+                {'  '}"reasons": ["clean_domain"],<br/>
+                {'  '}"signals": [&#123; "code": "clean_domain", "severity": "trusted" &#125;],<br/>
+                {'  '}"nextStep": <span className="text-green-300">"create_account"</span>,<br/>
+                {'  '}"recommendation": "Continue signup normally."<br/>
                 {'}'}
               </code>
             </pre>

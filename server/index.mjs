@@ -67,6 +67,50 @@ function decide(score) {
   return 'ALLOW';
 }
 
+const signalCatalog = {
+  invalid_email: ['email', 'critical', 'Email format is invalid.'],
+  temporary_email: ['email', 'critical', 'Domain is listed as a disposable email provider.'],
+  temporary_email_pattern: ['email', 'high', 'Domain name resembles known disposable email services.'],
+  temporary_email_mx: ['email', 'high', 'Mail infrastructure is associated with disposable email services.'],
+  missing_mx_record: ['email', 'high', 'Domain has no working MX mail record.'],
+  suspicious_domain_pattern: ['domain', 'medium', 'Domain naming pattern has low-reputation characteristics.'],
+  higher_risk_tld: ['domain', 'low', 'Domain uses a TLD with elevated abuse frequency.'],
+  blocked_domain: ['policy', 'critical', 'Domain is explicitly blocked by this project.'],
+  allowed_domain: ['policy', 'trusted', 'Domain is explicitly trusted by this project.'],
+  blocked_ip: ['network', 'critical', 'IP address is explicitly blocked by this project.'],
+  allowed_ip: ['network', 'trusted', 'IP address is explicitly trusted by this project.'],
+  suspicious_user_agent: ['device', 'medium', 'Request appears automated or is missing a normal browser user agent.'],
+  vpn_detected: ['network', 'medium', 'IP pattern resembles a proxy, VPN, or non-residential network.'],
+  free_email_provider: ['email', 'info', 'Email uses a common consumer mailbox provider.'],
+  business_domain: ['email', 'trusted', 'Domain has valid mail infrastructure and business-domain characteristics.'],
+  low_quality_pattern: ['email', 'low', 'Mailbox name contains a generic test or placeholder pattern.'],
+  random_email_pattern: ['email', 'low', 'Mailbox name contains a high mix of letters and digits.'],
+  ip_velocity_2m: ['velocity', 'high', 'At least five signup checks came from this IP within two minutes.'],
+  ip_velocity_10m: ['velocity', 'critical', 'At least twenty signup checks came from this IP within ten minutes.'],
+  repeat_ip: ['velocity', 'medium', 'This IP has repeatedly attempted signups within one hour.'],
+  same_device_multiple_accounts: ['device', 'high', 'The same device attempted at least five different accounts within one hour.'],
+  email_series_velocity: ['identity', 'high', 'Several sequential mailbox variants were attempted within three minutes.'],
+  clean_domain: ['email', 'trusted', 'No meaningful abuse indicators were detected.'],
+};
+
+function enrichRiskResult(riskScore, action, reasons, signalPoints = {}) {
+  const signals = reasons.map((code) => {
+    const [category, severity, detail] = signalCatalog[code] || ['other', 'info', code.replace(/_/g, ' ')];
+    return { code, category, severity, scoreImpact: signalPoints[code] || 0, detail };
+  });
+  const recommendation = action === 'BLOCK'
+    ? 'Reject signup before account creation and do not grant credits or product access.'
+    : action === 'REVIEW'
+      ? 'Require email verification or CAPTCHA, hold free credits, and approve automatically only after the challenge succeeds.'
+      : 'Continue signup normally. Keep monitoring post-signup velocity and credit usage.';
+  const nextStep = action === 'BLOCK' ? 'deny_signup' : action === 'REVIEW' ? 'step_up_verification' : 'create_account';
+  const confidence = Math.min(99, Math.max(55, Math.round(58 + Math.abs(riskScore - 40) * 0.7 + signals.filter((signal) => ['high', 'critical'].includes(signal.severity)).length * 6)));
+  const summary = action === 'ALLOW'
+    ? 'Low-risk signup with no strong abuse indicators.'
+    : `${action === 'BLOCK' ? 'High-risk' : 'Uncertain'} signup triggered ${signals.filter((signal) => signal.scoreImpact > 0).length} risk signal(s).`;
+  return { riskScore, action, confidence, reasons, signals, summary, recommendation, nextStep, protect: action === 'ALLOW' ? [] : protectedAreas };
+}
+
 function isListedDomain(domain, domains) {
   return domains.includes(domain) || domains.some((listed) => domain.endsWith(`.${listed}`));
 }
@@ -307,9 +351,13 @@ async function scoreSignup(input, internal = false) {
   const domainIntel = await inspectDomain(domain);
   let riskScore = 0;
   const reasons = [];
+  const signalPoints = {};
   const add = (points, reason) => {
     riskScore += points;
-    if (reason && !reasons.includes(reason)) reasons.push(reason);
+    if (reason) {
+      signalPoints[reason] = (signalPoints[reason] || 0) + points;
+      if (!reasons.includes(reason)) reasons.push(reason);
+    }
   };
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) add(70, 'invalid_email');
@@ -357,12 +405,8 @@ async function scoreSignup(input, internal = false) {
 
   riskScore = Math.max(0, Math.min(100, riskScore));
   const action = decide(riskScore);
-  return {
-    riskScore,
-    action,
-    reasons: reasons.length ? reasons : ['clean_domain'],
-    protect: action === 'ALLOW' ? [] : protectedAreas,
-  };
+  const finalReasons = reasons.length ? reasons : ['clean_domain'];
+  return enrichRiskResult(riskScore, action, finalReasons, signalPoints);
 }
 
 async function readJson(req) {
@@ -628,6 +672,28 @@ async function saveRiskEvent(input, result, keyRow, isTest = false) {
   return data[0];
 }
 
+function riskEventResponse(row) {
+  const detail = row.raw_response || {};
+  return {
+    ...row,
+    riskScore: row.risk_score ?? detail.riskScore ?? 0,
+    decision: row.action || detail.action || 'ALLOW',
+    reasons: row.reasons || detail.reasons || [],
+    signals: detail.signals || [],
+    confidence: detail.confidence || 0,
+    summary: detail.summary || '',
+    recommendation: detail.recommendation || '',
+    nextStep: detail.nextStep || '',
+    protect: row.protected_areas || detail.protect || [],
+    ip: row.ip_address || '',
+    deviceId: row.device_id || '',
+    userAgent: row.user_agent || '',
+    timestamp: row.created_at,
+    submittedAt: row.created_at,
+    status: row.action === 'REVIEW' ? 'pending' : row.action === 'ALLOW' ? 'approved' : 'blocked',
+  };
+}
+
 async function billingResponse(workspace) {
   const { data, error } = await (await table('billing_usage')).select('*').eq('workspace_id', workspace.id).single();
   if (error) throw new Error(error.message);
@@ -796,11 +862,11 @@ export async function router(req, res) {
     if (url.pathname === '/api/risk-events') {
       const { data, error } = await (await table('risk_events')).select('*').eq('project_id', project.id).order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
-      return send(res, 200, data);
+      return send(res, 200, data.map(riskEventResponse));
     }
     if (url.pathname.startsWith('/api/risk-events/')) {
       const { data } = await (await table('risk_events')).select('*').eq('id', url.pathname.split('/').pop()).eq('project_id', project.id).single();
-      return send(res, 200, data);
+      return send(res, 200, riskEventResponse(data));
     }
     if (url.pathname === '/api/api-keys' && req.method === 'GET') {
       const { data: rows, error } = await (await table('api_keys')).select('*').eq('project_id', project.id).order('created_at', { ascending: false });
@@ -861,7 +927,7 @@ export async function router(req, res) {
     if (url.pathname === '/api/review-queue') {
       const { data, error } = await (await table('risk_events')).select('*').eq('project_id', project.id).eq('action', 'REVIEW').order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
-      return send(res, 200, data);
+      return send(res, 200, data.map(riskEventResponse));
     }
     if (url.pathname.includes('/api/review-queue/') && req.method === 'POST') {
       const [, , , eventId, command] = url.pathname.split('/');

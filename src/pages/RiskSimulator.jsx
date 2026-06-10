@@ -1,24 +1,29 @@
 import { useState } from 'react';
+import { checkSignupRisk } from '../services/api';
 
 export default function RiskSimulator() {
   const [form, setForm] = useState({ email: 'test@tempmail.com', ip: '192.168.1.1', country: 'RU' });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
 
-  const simulate = (e) => {
+  const simulate = async (e) => {
     e.preventDefault();
     setLoading(true);
     setResult(null);
-    setTimeout(() => {
-      const score = form.email.includes('tempmail') ? 89 : form.email.includes('gmail') ? 12 : 54;
-      const reasons = [];
-      if (form.email.includes('tempmail') || form.email.includes('yopmail')) reasons.push('Temporary Email');
-      if (form.ip.startsWith('192') || form.country === 'RU') reasons.push('VPN Detected');
-      if (form.country === 'RU' || form.country === 'CN') reasons.push('High-Risk Country');
-      const decision = score >= 80 ? 'BLOCK' : score >= 40 ? 'REVIEW' : 'ALLOW';
-      setResult({ score, decision, reasons });
+    try {
+      const data = await checkSignupRisk({
+        email: form.email,
+        ip: form.ip,
+        deviceId: 'dashboard-risk-simulator',
+        userAgent: navigator.userAgent,
+        metadata: { country: form.country, source: 'dashboard_simulator' },
+      });
+      setResult({ ...data, score: data.riskScore, decision: data.action });
+    } catch (error) {
+      setResult({ error: error.message || 'Simulation failed.' });
+    } finally {
       setLoading(false);
-    }, 1200);
+    }
   };
 
   const decisionStyle = (d) => ({
@@ -87,7 +92,10 @@ export default function RiskSimulator() {
                 <div className="w-8 h-8 border-2 border-secondary border-t-transparent rounded-full animate-spin" />
               </div>
             )}
-            {result && !loading && (
+            {result?.error && !loading && (
+              <div className="rounded-lg border border-status-risk/30 bg-status-risk/5 px-4 py-3 text-status-risk font-medium">{result.error}</div>
+            )}
+            {result && !result.error && !loading && (
               <div className="animate-count space-y-6">
                 <div className="flex items-center gap-6 p-6 bg-surface-container-low rounded-xl border border-border-subtle">
                   <div className="text-center w-28">
@@ -99,15 +107,32 @@ export default function RiskSimulator() {
                     <span className={`px-4 py-2 font-bold rounded-lg text-[12px] border ${decisionStyle(result.decision)}`}>{result.decision}</span>
                   </div>
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-lg border border-border-subtle bg-surface-container-low p-4">
+                    <p className="font-label-caps text-[10px] text-on-surface-variant mb-1">CONFIDENCE</p>
+                    <p className="font-headline-sm text-xl">{result.confidence}%</p>
+                  </div>
+                  <div className="rounded-lg border border-border-subtle bg-surface-container-low p-4">
+                    <p className="font-label-caps text-[10px] text-on-surface-variant mb-1">NEXT STEP</p>
+                    <p className="text-code-sm font-bold">{result.nextStep?.replace(/_/g, ' ')}</p>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-secondary/20 bg-secondary/5 p-4">
+                  <p className="font-label-caps text-[10px] text-secondary mb-2">RECOMMENDED ACTION</p>
+                  <p className="text-code-sm leading-6">{result.recommendation}</p>
+                </div>
                 <div>
                   <p className="font-label-caps text-[10px] text-on-surface-variant mb-3 uppercase">Triggered Rules</p>
                   {result.reasons.length === 0
                     ? <p className="text-code-sm text-on-surface-variant">No rules triggered — clean profile</p>
                     : <div className="space-y-2">
-                        {result.reasons.map(r => (
-                          <div key={r} className="px-4 py-3 bg-white border border-status-risk/20 rounded-lg flex items-center gap-3">
+                        {(result.signals || result.reasons.map(code => ({ code, detail: code.replace(/_/g, ' ') }))).map(signal => (
+                          <div key={signal.code} className="px-4 py-3 bg-white border border-status-risk/20 rounded-lg flex items-start gap-3">
                             <span className="material-symbols-outlined text-status-risk text-[18px]">warning</span>
-                            <span className="text-code-sm font-bold">{r}</span>
+                            <div>
+                              <p className="text-code-sm font-bold">{signal.code.replace(/_/g, ' ')}</p>
+                              <p className="text-[11px] text-on-surface-variant mt-1">{signal.detail}</p>
+                            </div>
                           </div>
                         ))}
                       </div>
