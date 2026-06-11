@@ -789,6 +789,7 @@ async function deleteProjectRow(tableName, rowId, projectId) {
 
 export async function router(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  const requestId = req.headers['x-vercel-id'] || id('req');
   if (req.method === 'OPTIONS') return send(res, 204, {});
 
   try {
@@ -924,10 +925,14 @@ export async function router(req, res) {
       const row = { id: id('key'), project_id: project.id, name: body.name || 'New key', key_hash: hash(raw), key_prefix: raw.slice(0, 20), environment, status: 'active', scopes: body.scopes || ['signup:check'] };
       const { data, error } = await insertApiKey(row);
       if (error) throw new Error(error.message);
+      console.log('[api-keys] created', { requestId, projectId: project.id, keyId: data[0]?.id, environment });
       return send(res, 201, apiKeyResponse(data[0], raw));
     }
     if (url.pathname.startsWith('/api/api-keys/') && ['DELETE', 'PATCH'].includes(req.method)) {
-      return send(res, 200, await patchProjectRow('api_keys', url.pathname.split('/').pop(), project.id, { status: 'revoked' }));
+      const keyId = url.pathname.split('/').pop();
+      const revoked = await patchProjectRow('api_keys', keyId, project.id, { status: 'revoked' });
+      console.log('[api-keys] revoked', { requestId, projectId: project.id, keyId });
+      return send(res, 200, apiKeyResponse(revoked));
     }
 
     if (url.pathname === '/api/rules') {
@@ -1028,7 +1033,14 @@ export async function router(req, res) {
 
     return send(res, 404, { message: 'Not found' });
   } catch (error) {
-    return send(res, error.status || 500, { message: error.message || 'Server error' });
+    console.error('[api] request failed', {
+      requestId,
+      method: req.method,
+      path: url.pathname,
+      status: error.status || 500,
+      message: error.message || 'Server error',
+    });
+    return send(res, error.status || 500, { message: error.message || 'Server error', requestId });
   }
 }
 

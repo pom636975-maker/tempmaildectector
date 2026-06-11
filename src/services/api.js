@@ -1,15 +1,26 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8787' : '');
 
-async function request(path, options = {}) {
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function request(path, options = {}, attempt = 0) {
   const token = localStorage.getItem('stravo_access_token');
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+      },
+    });
+  } catch (error) {
+    if (attempt === 0) {
+      await wait(500);
+      return request(path, options, 1);
+    }
+    throw new Error('Could not reach STRAVOTECH. Check your connection and try again.', { cause: error });
+  }
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -18,7 +29,8 @@ async function request(path, options = {}) {
       localStorage.removeItem('stravo_user');
       window.dispatchEvent(new CustomEvent('stravo:auth-expired'));
     }
-    const error = new Error(body.message || body.error || 'Request failed');
+    const requestSuffix = body.requestId ? ` (Request ${body.requestId})` : '';
+    const error = new Error(`${body.message || body.error || 'Request failed'}${requestSuffix}`);
     error.status = res.status;
     throw error;
   }

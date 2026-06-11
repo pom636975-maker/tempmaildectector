@@ -6,6 +6,7 @@ export default function ApiKeys() {
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [revokingId, setRevokingId] = useState(null);
   const [newKey, setNewKey] = useState(null);
   const [copied, setCopied] = useState(null);
   const [error, setError] = useState('');
@@ -13,7 +14,7 @@ export default function ApiKeys() {
 
   const fetchKeys = () => {
     setLoading(true);
-    Promise.all([getApiKeys(), getBillingUsage()]).then(([data, usage]) => {
+    return Promise.all([getApiKeys(), getBillingUsage()]).then(([data, usage]) => {
       setKeys(data);
       setBilling(usage);
       setError('');
@@ -46,13 +47,16 @@ export default function ApiKeys() {
   };
 
   const handleRevoke = async (id) => {
-    // Optimistic revoke
-    setKeys(prev => prev.map(k => k.id === id ? { ...k, status: 'revoked' } : k));
+    setRevokingId(id);
+    setError('');
     try {
       await deleteApiKey(id);
+      await fetchKeys();
     } catch (err) {
       console.error(err);
-      fetchKeys();
+      setError(err.message || 'Could not revoke API key.');
+    } finally {
+      setRevokingId(null);
     }
   };
 
@@ -242,7 +246,7 @@ return createAccount();`;
             />
             <button
               onClick={handleCreate}
-              disabled={creating || !newName.trim()}
+              disabled={creating || Boolean(revokingId) || !newName.trim()}
               className="w-fit bg-primary text-on-primary px-6 py-3 rounded-lg font-label-caps text-label-caps font-bold hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2 disabled:opacity-50"
             >
               {creating
@@ -332,9 +336,10 @@ return createAccount();`;
                           </button>
                           <button
                             onClick={() => handleRevoke(k.id)}
+                            disabled={Boolean(revokingId)}
                             className="px-3 py-1.5 rounded-lg font-label-caps text-[10px] border border-status-risk/30 text-status-risk bg-status-risk/5 hover:bg-status-risk/10 transition-colors"
                           >
-                            Revoke
+                            {revokingId === k.id ? 'Revoking...' : 'Revoke'}
                           </button>
                         </div>
                       )}
