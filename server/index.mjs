@@ -46,6 +46,7 @@ const observedDisposableDomains = [
 const higherRiskTlds = new Set(['click', 'monster', 'quest', 'rest', 'sbs', 'shop', 'site', 'space', 'top', 'work', 'xyz']);
 const rateBuckets = new Map();
 const ratePolicies = [
+  { match: (req, url) => req.method === 'POST' && url.pathname === '/api/early-access', limit: 5, windowMs: 15 * 60 * 1000, name: 'early-access' },
   { match: (req, url) => req.method === 'POST' && url.pathname === '/api/auth/signup', limit: 8, windowMs: 15 * 60 * 1000, name: 'signup' },
   { match: (req, url) => req.method === 'POST' && url.pathname === '/api/auth/login', limit: 20, windowMs: 15 * 60 * 1000, name: 'login' },
   { match: (req, url) => req.method === 'POST' && url.pathname === '/api/auth/verify-email', limit: 10, windowMs: 15 * 60 * 1000, name: 'verify-email' },
@@ -804,7 +805,46 @@ export async function router(req, res) {
 
     const body = ['POST', 'PATCH', 'DELETE'].includes(req.method) ? await readJson(req) : {};
 
+    if (req.method === 'POST' && url.pathname === '/api/early-access') {
+      const parsed = parseEmail(body.email);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parsed.email)) {
+        throw Object.assign(new Error('Enter a valid email address.'), { status: 400 });
+      }
+      const result = await scoreSignup({
+        email: parsed.email,
+        ip: getClientIp(req),
+        userAgent: req.headers['user-agent'] || '',
+        deviceId: '',
+      }, true);
+      if (result.action === 'BLOCK') {
+        throw Object.assign(new Error('Please use a real Gmail or work email for early access.'), { status: 400 });
+      }
+      const { data: existing, error: existingError } = await (await table('internal_signup_attempts'))
+        .select('id')
+        .eq('email', parsed.email)
+        .eq('action', 'EARLY_ACCESS');
+      if (existingError) throw new Error(existingError.message);
+      if (!existing?.length) {
+        const { error } = await (await table('internal_signup_attempts')).insert([{
+          id: id('wait'),
+          email: parsed.email,
+          email_domain: parsed.domain,
+          ip_address: getClientIp(req),
+          user_agent: req.headers['user-agent'] || '',
+          risk_score: result.riskScore,
+          action: 'EARLY_ACCESS',
+          reasons: ['beta_waitlist'],
+        }]);
+        if (error) throw new Error(error.message);
+      }
+      return send(res, 201, { ok: true, message: "You're on the STRAVOTECH beta early-access list." });
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/auth/signup') {
+      return send(res, 403, { message: 'STRAVOTECH is currently in closed beta. Join early access instead.' });
+    }
+
+    if (false && req.method === 'POST' && url.pathname === '/api/auth/signup') {
       const { email, password, fullName } = body;
       const result = await scoreSignup({ email, ip: getClientIp(req), userAgent: req.headers['user-agent'], deviceId: body.deviceId }, true);
       const parsed = parseEmail(email);

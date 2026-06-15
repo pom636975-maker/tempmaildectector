@@ -47,6 +47,9 @@ export const authApi = {
   resetPassword: (email) => request('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ email }) }),
 };
 
+export const joinEarlyAccess = (email) =>
+  request('/api/early-access', { method: 'POST', body: JSON.stringify({ email }) });
+
 export const checkSignupRisk = (payload) =>
   request('/api/risk-simulator', { method: 'POST', body: JSON.stringify(payload) });
 

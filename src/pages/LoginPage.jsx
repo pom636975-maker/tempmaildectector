@@ -1,42 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-
-function getDeviceFingerprint() {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    ctx.textBaseline = 'top';
-    ctx.font = '14px Arial';
-    ctx.fillText('stravotech-device', 2, 2);
-  }
-  const raw = [
-    navigator.userAgent,
-    navigator.language,
-    Intl.DateTimeFormat().resolvedOptions().timeZone,
-    `${screen.width}x${screen.height}x${screen.colorDepth}`,
-    canvas.toDataURL(),
-  ].join('|');
-
-  let hash = 0;
-  for (let index = 0; index < raw.length; index += 1) {
-    hash = ((hash << 5) - hash + raw.charCodeAt(index)) | 0;
-  }
-  return `dev_${Math.abs(hash).toString(36)}`;
-}
+import { joinEarlyAccess } from '../services/api';
 
 export default function LoginPage() {
-  const { login, signup, verifyEmail, resendVerification, loginWithProvider, authError, isAuthenticated, isDashboardEnabled } = useAuth();
+  const { login, authError, isAuthenticated, isDashboardEnabled } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState('login');
-  const [fullName, setFullName] = useState('');
-  const [otp, setOtp] = useState('');
-  const [pendingEmail, setPendingEmail] = useState('');
+  const [earlyAccessEmail, setEarlyAccessEmail] = useState('');
+  const [earlyAccessLoading, setEarlyAccessLoading] = useState(false);
+  const [earlyAccessMessage, setEarlyAccessMessage] = useState('');
   const [liveRiskScore, setLiveRiskScore] = useState(89);
 
   // Simulating live activity for visual effect
@@ -49,10 +26,6 @@ export default function LoginPage() {
     }, 4000);
     return () => clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    if (authError) setError(authError);
-  }, [authError]);
 
   useEffect(() => {
     if (isAuthenticated && isDashboardEnabled) {
@@ -71,18 +44,6 @@ export default function LoginPage() {
     setNotice('');
     setLoading(true);
     try {
-      if (mode === 'signup') {
-        const result = await signup({ email, password, fullName, deviceId: getDeviceFingerprint() });
-        setPendingEmail(result.email || email);
-        setMode('verify');
-        setNotice(result.message || 'Verification code sent. Enter the latest 6-digit code from your inbox.');
-        return;
-      }
-      if (mode === 'verify') {
-        await verifyEmail({ email: pendingEmail || email, otp });
-        navigate('/dashboard');
-        return;
-      }
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
@@ -92,30 +53,18 @@ export default function LoginPage() {
     }
   };
 
-  const handleResendCode = async () => {
-    setError('');
-    setNotice('');
-    setLoading(true);
+  const handleEarlyAccess = async (event) => {
+    event.preventDefault();
+    setEarlyAccessLoading(true);
+    setEarlyAccessMessage('');
     try {
-      const result = await resendVerification(pendingEmail || email);
-      setOtp('');
-      setNotice(result.message || 'Verification code sent again. Use the newest code; older codes are invalid.');
+      const result = await joinEarlyAccess(earlyAccessEmail);
+      setEarlyAccessMessage(result.message);
+      setEarlyAccessEmail('');
     } catch (err) {
-      setError(err.message);
+      setEarlyAccessMessage(err.message);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOAuthLogin = async (provider) => {
-    setError('');
-    setNotice('');
-    setLoading(true);
-    try {
-      await loginWithProvider(provider);
-    } catch (err) {
-      setError(err.message);
-      setLoading(false);
+      setEarlyAccessLoading(false);
     }
   };
 
@@ -263,13 +212,16 @@ export default function LoginPage() {
                 STRAVOTECH
               </Link>
             </div>
-            <h2 className="font-headline-lg text-headline-lg text-brand-navy mb-2">{mode === 'login' ? 'Sign in to STRAVOTECH' : mode === 'verify' ? 'Verify your email' : 'Create your STRAVOTECH account'}</h2>
-            <p className="font-body-md text-body-md text-login-outline">Access your signup risk dashboard.</p>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">
+              <span className="h-2 w-2 rounded-full bg-blue-500" /> CLOSED BETA
+            </div>
+            <h2 className="font-headline-lg text-headline-lg text-brand-navy mb-2">Sign in to STRAVOTECH</h2>
+            <p className="font-body-md text-body-md text-login-outline">Existing beta members can access the dashboard.</p>
           </div>
 
-          {error && (
+          {(error || authError) && (
             <div className="bg-login-error-container/30 border border-login-login-error/15 rounded-lg p-3 text-sm text-login-error">
-              {error}
+              {error || authError}
             </div>
           )}
           {notice && (
@@ -281,21 +233,6 @@ export default function LoginPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
-              {mode === 'signup' && (
-                <div className="space-y-1.5">
-                  <label className="font-label-caps text-label-caps text-login-on-surface-variant" htmlFor="fullName">FULL NAME</label>
-                  <input
-                    className="w-full h-12 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary focus:border-login-primary transition-all outline-none text-body-md placeholder:text-login-outline/50 shadow-sm"
-                    id="fullName"
-                    name="fullName"
-                    placeholder="Ada Founder"
-                    type="text"
-                    value={fullName}
-                    onChange={e => setFullName(e.target.value)}
-                  />
-                </div>
-              )}
-              {mode !== 'verify' ? (
               <div className="space-y-1.5">
                 <label className="font-label-caps text-label-caps text-login-on-surface-variant" htmlFor="email">EMAIL ADDRESS</label>
                 <input 
@@ -309,26 +246,6 @@ export default function LoginPage() {
                   onChange={e => setEmail(e.target.value)}
                 />
               </div>
-              ) : (
-              <div className="space-y-1.5">
-                <label className="font-label-caps text-label-caps text-login-on-surface-variant" htmlFor="otp">VERIFICATION CODE</label>
-                <input
-                  className="w-full h-12 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary focus:border-login-primary transition-all outline-none text-body-md placeholder:text-login-outline/50 shadow-sm tracking-[0.25em]"
-                  id="otp"
-                  inputMode="numeric"
-                  maxLength={6}
-                  name="otp"
-                  placeholder="123456"
-                  required
-                  type="text"
-                  value={otp}
-                  onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                />
-                <p className="text-sm text-login-outline">Code sent to {pendingEmail || email}</p>
-                <p className="text-xs text-login-outline">Use the newest code only. It can take a minute to arrive; check Spam and Promotions too.</p>
-              </div>
-              )}
-              {mode !== 'verify' && (
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <label className="font-label-caps text-label-caps text-login-on-surface-variant" htmlFor="password">PASSWORD</label>
@@ -345,72 +262,36 @@ export default function LoginPage() {
                   onChange={e => setPassword(e.target.value)}
                 />
               </div>
-              )}
             </div>
 
             <button 
               className="w-full h-12 bg-login-primary text-white font-headline-md text-body-lg rounded-lg shadow-lg shadow-login-primary/20 hover:bg-login-primary-container active:scale-[0.98] transition-all flex items-center justify-center inner-glow cursor-pointer" 
               type="submit"
-              disabled={loading || (mode === 'verify' && otp.length !== 6)}
+              disabled={loading}
             >
-              {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : mode === 'verify' ? 'Verify Email' : 'Create Account'}
+              {loading ? 'Please wait...' : 'Sign In'}
             </button>
-            {mode === 'verify' && (
-              <button
-                className="w-full h-11 border border-login-outline-variant rounded-lg text-login-primary font-bold hover:bg-login-surface-container-low transition-colors"
-                disabled={loading}
-                type="button"
-                onClick={handleResendCode}
-              >
-                Resend Code
-              </button>
-            )}
           </form>
 
-          {/* Divider */}
-          <div className="relative flex items-center py-4">
-            <div className="flex-grow border-t border-login-outline-variant"></div>
-            <span className="flex-shrink mx-4 font-label-caps text-label-caps text-login-outline">OR CONTINUE WITH</span>
-            <div className="flex-grow border-t border-login-outline-variant"></div>
-          </div>
-
-          {/* Social Logins */}
-          <div className="grid grid-cols-2 gap-4">
-            <button 
-              className="flex items-center justify-center gap-2 h-11 border border-login-outline-variant rounded-lg hover:bg-login-surface-container-low transition-colors active:scale-[0.98] cursor-pointer"
-              type="button"
-              disabled={loading}
-              onClick={() => handleOAuthLogin('google')}
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"></path>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
-              </svg>
-              <span className="font-body-md text-body-md font-medium text-[#101828]">Google</span>
-            </button>
-            <button 
-              className="flex items-center justify-center gap-2 h-11 border border-login-outline-variant rounded-lg hover:bg-login-surface-container-low transition-colors active:scale-[0.98] cursor-pointer"
-              type="button"
-              disabled={loading}
-              onClick={() => handleOAuthLogin('github')}
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path d="M12 1.27a11 11 0 00-3.48 21.46c.55.09.73-.24.73-.53v-1.84c-3.03.66-3.67-1.46-3.67-1.46-.5-1.24-1.21-1.58-1.21-1.58-1-1.37.08-1.35.08-1.35 1.1.07 1.69 1.14 1.69 1.14 1 1.7 2.6 1.2 3.23.92.1-.71.39-1.2.7-1.48-2.42-.28-4.97-1.21-4.97-5.39 0-1.19.43-2.16 1.13-2.93-.11-.27-.49-1.38.11-2.89 0 0 .91-.29 3 1.12.87-.24 1.79-.36 2.71-.37.92 0 1.84.13 2.71.37 2.09-1.41 3-1.12 3-1.12.6 1.5.22 2.61.11 2.89.71.77 1.13 1.74 1.13 2.93 0 4.19-2.55 5.1-4.98 5.37.39.34.73 1.01.73 2.03v3.01c0 .3.18.63.74.52A11 11 0 0012 1.27z" fill="#181717"></path>
-              </svg>
-              <span className="font-body-md text-body-md font-medium text-[#101828]">GitHub</span>
-            </button>
-          </div>
-
-          {/* Footer Links */}
-          <div className="pt-8 text-center md:text-left space-y-4">
-            <p className="font-body-md text-body-md">
-              <span className="text-login-outline">{mode === 'login' ? 'New to STRAVOTECH?' : 'Already have an account?'}</span>
-              <button type="button" className="text-login-primary font-bold ml-1 hover:underline hover:no-underline" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setNotice(''); }}>
-                {mode === 'login' ? 'Join Early Access' : 'Sign in'}
+          <div className="border-t border-login-outline-variant pt-7 text-left space-y-4">
+            <div>
+              <p className="font-headline-sm text-lg text-brand-navy">Not invited yet?</p>
+              <p className="mt-1 text-sm text-login-outline">Join the beta waitlist. We will email you when access opens.</p>
+            </div>
+            <form className="flex flex-col sm:flex-row gap-3" onSubmit={handleEarlyAccess}>
+              <input
+                className="min-w-0 flex-1 h-11 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary outline-none text-sm"
+                type="email"
+                required
+                placeholder="you@gmail.com"
+                value={earlyAccessEmail}
+                onChange={event => setEarlyAccessEmail(event.target.value)}
+              />
+              <button className="h-11 px-5 rounded-lg border border-login-primary text-login-primary font-bold hover:bg-blue-50 disabled:opacity-50" disabled={earlyAccessLoading} type="submit">
+                {earlyAccessLoading ? 'Joining...' : 'Join Early Access'}
               </button>
-            </p>
+            </form>
+            {earlyAccessMessage && <p className="text-sm text-login-primary">{earlyAccessMessage}</p>}
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-4 border-t border-login-outline-variant/30">
               <div className="flex items-center gap-1.5 text-login-outline">
                 <span className="material-symbols-outlined text-[14px]">lock</span>

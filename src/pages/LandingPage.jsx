@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { joinEarlyAccess } from '../services/api';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -17,6 +18,9 @@ export default function LandingPage() {
   });
   
   const [progressActive, setProgressActive] = useState(false);
+  const [earlyAccessEmail, setEarlyAccessEmail] = useState('');
+  const [earlyAccessStatus, setEarlyAccessStatus] = useState('');
+  const [earlyAccessLoading, setEarlyAccessLoading] = useState(false);
 
   // Trigger scroll reveals and counters animation
   useEffect(() => {
@@ -106,7 +110,22 @@ export default function LandingPage() {
     if (isAuthenticated) {
       navigate('/dashboard');
     } else {
-      navigate('/login');
+      document.getElementById('early-access')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const handleEarlyAccess = async (event) => {
+    event.preventDefault();
+    setEarlyAccessLoading(true);
+    setEarlyAccessStatus('');
+    try {
+      const result = await joinEarlyAccess(earlyAccessEmail);
+      setEarlyAccessStatus(result.message);
+      setEarlyAccessEmail('');
+    } catch (error) {
+      setEarlyAccessStatus(error.message);
+    } finally {
+      setEarlyAccessLoading(false);
     }
   };
 
@@ -199,6 +218,7 @@ export default function LandingPage() {
           <Link to="/" className="text-headline-sm font-headline-sm font-bold text-[#0f172a] tracking-tight hover:no-underline">
             STRAVOTECH
           </Link>
+          <span className="hidden sm:inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-bold text-blue-700">CLOSED BETA</span>
           
           <div className="hidden md:flex gap-8">
             <a className="font-label-caps text-label-caps text-on-surface-variant hover:text-[#3B82F6] transition-colors duration-200 hover:no-underline" href="#product">Product</a>
@@ -224,7 +244,7 @@ export default function LandingPage() {
                   onClick={handleCtaClick} 
                   className="hidden sm:block bg-[#3B82F6] hover:bg-secondary-container text-on-primary font-label-caps text-label-caps py-3 px-6 rounded-lg transition-colors shadow-ambient"
                 >
-                  Protect My Signup Flow
+                  Join Early Access
                 </button>
               </>
             )}
@@ -246,7 +266,7 @@ export default function LandingPage() {
           <div className="md:col-span-5 space-y-8 relative z-10">
             <div className="inline-flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-border-subtle">
               <span className="w-2 h-2 rounded-full bg-status-protected"></span>
-              <span className="font-label-caps text-label-caps text-on-surface-variant">Built for AI Founders</span>
+              <span className="font-label-caps text-label-caps text-on-surface-variant">Closed Beta for AI Founders</span>
             </div>
             
             <h1 className="font-display-lg-mobile text-display-lg-mobile md:font-display-lg md:text-display-lg text-[#0f172a] leading-tight">
@@ -267,7 +287,7 @@ export default function LandingPage() {
                 onClick={handleCtaClick} 
                 className="bg-[#3B82F6] hover:bg-secondary-container text-on-primary font-label-caps text-label-caps py-4 px-8 rounded-lg transition-colors shadow-ambient text-center"
               >
-                Protect My Signup Flow
+                Join the Beta
               </button>
               <a 
                 className="bg-surface-card hover:bg-surface-container border border-border-subtle text-[#0f172a] font-label-caps text-label-caps py-4 px-8 rounded-lg transition-colors flex items-center justify-center gap-2 hover:no-underline" 
@@ -720,7 +740,7 @@ export default function LandingPage() {
                     : 'bg-surface border border-border-subtle text-[#0f172a] hover:bg-surface-container'
                 }`}
               >
-                Get Started
+                Request Beta Access
               </button>
             </div>
           ))}
@@ -728,19 +748,28 @@ export default function LandingPage() {
       </section>
 
       {/* Final CTA */}
-      <section className="py-24 px-margin-mobile md:px-margin-desktop reveal" id="case-studies">
+      <section className="py-24 px-margin-mobile md:px-margin-desktop reveal" id="early-access">
         <div className="max-w-4xl mx-auto bg-surface-card border border-border-subtle rounded-3xl p-10 md:p-16 text-center shadow-ambient-lg relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-[#3B82F6]/5 to-transparent pointer-events-none"></div>
-          <h2 className="font-headline-md text-3xl md:text-4xl text-[#0f172a] mb-6 font-bold relative z-10">Protect your startup before fake growth becomes expensive.</h2>
+          <div className="relative z-10 mx-auto mb-5 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">STRAVOTECH BETA</div>
+          <h2 className="font-headline-md text-3xl md:text-4xl text-[#0f172a] mb-6 font-bold relative z-10">Get early access to STRAVOTECH.</h2>
           <p className="text-on-surface-variant text-lg mb-10 max-w-2xl mx-auto relative z-10">
-            Block risky users before they waste credits, pollute your CRM, damage your email list, and confuse your growth data.
+            We are onboarding a small group of AI SaaS founders during closed beta. Share your Gmail or work email and we will contact you when a place opens.
           </p>
-          <button 
-            onClick={handleCtaClick} 
-            className="bg-[#3B82F6] hover:bg-secondary-container text-on-primary font-label-caps text-label-caps py-4 px-10 rounded-lg transition-colors shadow-ambient text-lg relative z-10"
-          >
-            Start Protecting Signups
-          </button>
+          <form className="relative z-10 mx-auto flex max-w-xl flex-col gap-3 sm:flex-row" onSubmit={handleEarlyAccess}>
+            <input
+              className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-white px-4 py-4 text-[#0f172a] outline-none focus:ring-2 focus:ring-[#3B82F6]"
+              type="email"
+              required
+              placeholder="you@gmail.com"
+              value={earlyAccessEmail}
+              onChange={event => setEarlyAccessEmail(event.target.value)}
+            />
+            <button className="rounded-lg bg-[#3B82F6] px-8 py-4 font-bold text-white shadow-ambient transition-colors hover:bg-secondary-container disabled:opacity-60" disabled={earlyAccessLoading} type="submit">
+              {earlyAccessLoading ? 'Joining...' : 'Join Early Access'}
+            </button>
+          </form>
+          {earlyAccessStatus && <p className="relative z-10 mt-4 text-sm font-medium text-[#3B82F6]">{earlyAccessStatus}</p>}
         </div>
       </section>
 
