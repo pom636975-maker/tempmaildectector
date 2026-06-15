@@ -822,7 +822,7 @@ export async function router(req, res) {
       const { data: existing, error: existingError } = await (await table('internal_signup_attempts'))
         .select('id')
         .eq('email', parsed.email)
-        .eq('action', 'EARLY_ACCESS');
+        .eq('action', 'REVIEW');
       if (existingError) throw new Error(existingError.message);
       if (!existing?.length) {
         const { error } = await (await table('internal_signup_attempts')).insert([{
@@ -832,7 +832,7 @@ export async function router(req, res) {
           ip_address: getClientIp(req),
           user_agent: req.headers['user-agent'] || '',
           risk_score: result.riskScore,
-          action: 'EARLY_ACCESS',
+          action: 'REVIEW',
           reasons: ['beta_waitlist'],
         }]);
         if (error) throw new Error(error.message);
