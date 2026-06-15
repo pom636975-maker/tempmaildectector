@@ -893,6 +893,10 @@ export async function router(req, res) {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/auth/login') {
+      const password = typeof body.password === 'string' ? body.password : '';
+      if (password.length < 8 || password.length > 72) {
+        throw Object.assign(new Error('Password must be between 8 and 72 characters.'), { status: 400 });
+      }
       const { data, error } = await publicClient.auth.signInWithPassword(body);
       if (error) throw Object.assign(new Error(error.message), { status: error.statusCode || 401 });
       const signedInUser = authUserFrom(data);

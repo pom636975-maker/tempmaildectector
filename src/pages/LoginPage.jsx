@@ -258,9 +258,13 @@ export default function LoginPage() {
                   placeholder="••••••••" 
                   required 
                   type="password"
+                  minLength={8}
+                  maxLength={72}
+                  autoComplete="current-password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                 />
+                <p className="text-xs text-login-outline">8 to 72 characters</p>
               </div>
             </div>
 
