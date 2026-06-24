@@ -712,10 +712,11 @@ async function saveRiskEvent(input, result, keyRow, isTest = false) {
 
 function riskEventResponse(row) {
   const detail = row.raw_response || {};
+  const decision = String(row.action || detail.action || 'ALLOW').toUpperCase();
   return {
     ...row,
     riskScore: row.risk_score ?? detail.riskScore ?? 0,
-    decision: row.action || detail.action || 'ALLOW',
+    decision,
     reasons: row.reasons || detail.reasons || [],
     signals: detail.signals || [],
     confidence: detail.confidence || 0,
@@ -728,8 +729,38 @@ function riskEventResponse(row) {
     userAgent: row.user_agent || '',
     timestamp: row.created_at,
     submittedAt: row.created_at,
-    status: row.action === 'REVIEW' ? 'pending' : row.action === 'ALLOW' ? 'approved' : 'blocked',
+    status: decision === 'REVIEW' ? 'pending' : decision === 'ALLOW' ? 'approved' : 'blocked',
   };
+}
+
+function internalSignupAttemptResponse(row) {
+  const decision = String(row.action || 'REVIEW').toUpperCase();
+  return {
+    ...row,
+    source: 'early_access',
+    riskScore: row.risk_score ?? 0,
+    decision,
+    reasons: row.reasons || [],
+    signals: [],
+    confidence: 0,
+    summary: 'Early-access signup waiting for review.',
+    recommendation: decision === 'REVIEW' ? 'Review this early-access request before granting access.' : '',
+    nextStep: decision === 'REVIEW' ? 'manual_review' : '',
+    protect: [],
+    ip: row.ip_address || '',
+    deviceId: row.device_id || '',
+    userAgent: row.user_agent || '',
+    timestamp: row.created_at,
+    submittedAt: row.created_at,
+    status: decision === 'REVIEW' ? 'pending' : decision === 'ALLOW' ? 'approved' : 'blocked',
+  };
+}
+
+function isReviewQueueCandidate(row) {
+  const detail = row.raw_response || {};
+  const decision = String(row.action || detail.action || '').toUpperCase();
+  const score = Number(row.risk_score ?? detail.riskScore ?? 0);
+  return decision === 'REVIEW' || (score >= 40 && score < 80);
 }
 
 async function billingResponse(workspace) {
@@ -1030,14 +1061,31 @@ export async function router(req, res) {
       return send(res, 201, data[0]);
     }
     if (url.pathname === '/api/review-queue') {
-      const { data, error } = await (await table('risk_events')).select('*').eq('project_id', project.id).eq('action', 'REVIEW').order('created_at', { ascending: false });
-      if (error) throw new Error(error.message);
-      return send(res, 200, data.map(riskEventResponse));
+      const [riskEvents, internalAttempts] = await Promise.all([
+        (await table('risk_events')).select('*').eq('project_id', project.id).order('created_at', { ascending: false }).limit(200),
+        (await table('internal_signup_attempts')).select('*').order('created_at', { ascending: false }).limit(200),
+      ]);
+      if (riskEvents.error) throw new Error(riskEvents.error.message);
+      if (internalAttempts.error) throw new Error(internalAttempts.error.message);
+      const reviewItems = [
+        ...(riskEvents.data || []).filter(isReviewQueueCandidate).map(riskEventResponse),
+        ...(internalAttempts.data || []).map(internalSignupAttemptResponse),
+      ].sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+      return send(res, 200, reviewItems);
     }
     if (url.pathname.includes('/api/review-queue/') && req.method === 'POST') {
       const [, , , eventId, command] = url.pathname.split('/');
       const action = command === 'approve' ? 'ALLOW' : 'BLOCK';
-      const updated = await patchProjectRow('risk_events', eventId, project.id, { action });
+      const isInternalAttempt = eventId.startsWith('wait_') || eventId.startsWith('isa_');
+      let updated;
+      if (isInternalAttempt) {
+        const { data, error } = await (await table('internal_signup_attempts')).update({ action }).eq('id', eventId).select();
+        if (error) throw new Error(error.message);
+        if (!data?.length) throw Object.assign(new Error('Not found'), { status: 404 });
+        updated = internalSignupAttemptResponse(data[0]);
+      } else {
+        updated = await patchProjectRow('risk_events', eventId, project.id, { action });
+      }
       await (await table('audit_logs')).insert([{ id: id('aud'), workspace_id: workspace.id, project_id: project.id, user_id: user.id, action: `review_${command}`, entity_type: 'risk_event', entity_id: eventId, metadata: body }]);
       return send(res, 200, updated);
     }
