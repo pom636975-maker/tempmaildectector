@@ -74,6 +74,20 @@ export default function ApiKeys() {
   const usageLabel = `${monthlyUsed.toLocaleString()} of ${monthlyLimit.toLocaleString()} calls used`;
   const apiEndpoint = 'https://stravotech.in/api/v1/check-signup';
   const exampleKey = newKey || 'YOUR_STRAVOTECH_API_KEY';
+  const developerBrief = `Install STRAVOTECH on our signup form.
+
+1. Keep this key on the server only:
+   ${exampleKey}
+
+2. Before creating a user, send their email, IP, device ID, and user agent to:
+   ${apiEndpoint}
+
+3. Follow the API decision:
+   ALLOW  -> create the account
+   REVIEW -> verify the user first and hold free credits
+   BLOCK  -> stop the signup
+
+Never put the API key in frontend or browser code.`;
   const curlExample = `curl -X POST ${apiEndpoint} \\
   -H "Authorization: Bearer ${exampleKey}" \\
   -H "Content-Type: application/json" \\
@@ -167,14 +181,46 @@ return createAccount();`;
       <div className="bg-white border border-border-subtle rounded-xl overflow-hidden mb-6">
         <div className="px-8 py-6 border-b border-border-subtle flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h3 className="font-headline-sm text-[18px]">Use STRAVOTECH in your website</h3>
-            <p className="text-on-surface-variant text-code-sm mt-1">Call this API from your backend before creating a user account or giving free credits.</p>
+            <h3 className="font-headline-sm text-[18px]">Add STRAVOTECH to your website</h3>
+            <p className="text-on-surface-variant text-code-sm mt-1">Use this before signup finishes, so risky users are stopped before they get product access.</p>
           </div>
           <span className="px-3 py-1 rounded-lg bg-status-protected/10 text-status-protected border border-status-protected/20 font-label-caps text-[10px]">
             Server-side only
           </span>
         </div>
-        <div className="p-8 grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="p-8 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { step: '1', title: 'Create a key', text: 'Make one live API key for your production website.' },
+              { step: '2', title: 'Paste server code', text: 'Add the API call before your normal create-account logic.' },
+              { step: '3', title: 'Follow the result', text: 'Allow clean users, verify uncertain users, and block risky users.' },
+            ].map(item => (
+              <div key={item.step} className="rounded-xl border border-border-subtle bg-surface-container-low p-5">
+                <div className="w-8 h-8 rounded-lg bg-secondary text-white flex items-center justify-center font-bold text-code-sm mb-4">{item.step}</div>
+                <h4 className="font-bold text-primary mb-2">{item.title}</h4>
+                <p className="text-code-sm text-on-surface-variant">{item.text}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-xl border border-secondary/20 bg-secondary/5 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <div>
+                <p className="font-label-caps text-[10px] text-secondary uppercase mb-1">Non-technical shortcut</p>
+                <h4 className="font-bold text-primary">Send this message to your developer</h4>
+              </div>
+              <button
+                onClick={() => copyKey(developerBrief, 'developer-brief')}
+                className="px-4 py-2 rounded-lg border border-secondary/30 bg-white text-secondary font-label-caps text-[10px] font-bold hover:bg-secondary hover:text-white transition-colors"
+                type="button"
+              >
+                {copied === 'developer-brief' ? 'Copied' : 'Copy Message'}
+              </button>
+            </div>
+            <pre className="whitespace-pre-wrap text-[12px] leading-5 font-mono text-on-surface-variant bg-white border border-border-subtle rounded-lg p-4">{developerBrief}</pre>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <div className="space-y-4">
             <div className="grid grid-cols-[120px_1fr] gap-3 text-code-sm">
               <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">Endpoint</span>
@@ -185,11 +231,11 @@ return createAccount();`;
               <code className="break-all bg-surface-container-low px-3 py-2 rounded-lg border border-border-subtle">Authorization: Bearer YOUR_API_KEY</code>
             </div>
             <div className="rounded-xl border border-border-subtle bg-surface-container-low p-5">
-              <p className="font-label-caps text-[10px] text-on-surface-variant uppercase mb-3">Decision logic</p>
+              <p className="font-label-caps text-[10px] text-on-surface-variant uppercase mb-3">What the API says</p>
               <div className="space-y-2 text-code-sm">
-                <p><span className="font-bold text-status-protected">ALLOW</span> - continue signup normally.</p>
-                <p><span className="font-bold text-status-warning">REVIEW</span> - hold credits/access until manual approval.</p>
-                <p><span className="font-bold text-status-risk">BLOCK</span> - stop signup and show a safe error.</p>
+                <p><span className="font-bold text-status-protected">ALLOW</span> - this user looks safe. Let them in.</p>
+                <p><span className="font-bold text-status-warning">REVIEW</span> - ask for extra verification before giving credits.</p>
+                <p><span className="font-bold text-status-risk">BLOCK</span> - stop the signup before they enter your product.</p>
               </div>
             </div>
           </div>
@@ -221,6 +267,7 @@ return createAccount();`;
               </div>
               <pre className="p-4 overflow-x-auto text-[12px] leading-5 text-gray-200"><code>{curlExample}</code></pre>
             </div>
+          </div>
           </div>
         </div>
       </div>

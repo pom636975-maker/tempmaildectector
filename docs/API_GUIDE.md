@@ -2,6 +2,24 @@
 
 Use the STRAVOTECH API to score signups before you create accounts, grant credits, add CRM contacts, or start email marketing workflows.
 
+## Plain-English Setup
+
+If you are not technical, send this section to your developer:
+
+1. Create an API key in `Dashboard -> API Keys`.
+2. Keep the key on the backend/server only.
+3. Call `POST https://stravotech.in/api/v1/check-signup` before creating the account.
+4. Send the user's email, IP address, device ID, and user agent when available.
+5. Follow the API result:
+
+```text
+ALLOW  -> create the account normally
+REVIEW -> verify the user first and hold free credits
+BLOCK  -> stop the signup before the user enters the product
+```
+
+Never put the STRAVOTECH API key inside frontend JavaScript, browser code, or a public GitHub repo.
+
 ## Base URL
 
 Local development:
@@ -13,7 +31,7 @@ http://localhost:8787
 Production:
 
 ```text
-https://your-stravotech-api.example.com
+https://stravotech.in
 ```
 
 ## Authentication

@@ -4,17 +4,31 @@ export default function Docs() {
       <div className="flex justify-between items-end mb-8">
         <div>
           <h1 className="font-headline-md text-headline-md text-primary mb-1">Support & Docs</h1>
-          <p className="text-on-surface-variant font-body-md">Learn how to integrate STRAVOTECH into your application.</p>
+          <p className="text-on-surface-variant font-body-md">Simple setup steps for protecting your signup flow.</p>
         </div>
       </div>
 
       <div className="bg-white border border-border-subtle rounded-xl overflow-hidden mb-8">
         <div className="px-8 py-6 border-b border-border-subtle bg-surface-container-low flex items-center gap-3">
           <span className="material-symbols-outlined text-secondary">code</span>
-          <h3 className="font-headline-sm text-[18px]">Quickstart Integration</h3>
+          <h3 className="font-headline-sm text-[18px]">Simple Setup Guide</h3>
         </div>
         <div className="p-8">
-          <p className="text-code-sm text-on-surface-variant mb-6">Send a POST request to our risk evaluation endpoint when a user signs up.</p>
+          <p className="text-code-sm text-on-surface-variant mb-6">STRAVOTECH should run on your server at the moment someone clicks signup. The API gives one clear decision: allow, review, or block.</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {[
+              { title: 'Where to put it', desc: 'On your backend/server only. Never put the secret key in browser code.', icon: 'dns' },
+              { title: 'When to call it', desc: 'Before creating the account, granting credits, or adding the user to your CRM.', icon: 'bolt' },
+              { title: 'What to do next', desc: 'ALLOW creates the account. REVIEW verifies first. BLOCK stops the signup.', icon: 'rule' },
+            ].map(item => (
+              <div key={item.title} className="rounded-xl border border-border-subtle bg-surface-container-low p-5">
+                <span className="material-symbols-outlined text-secondary mb-3">{item.icon}</span>
+                <h4 className="font-bold text-primary mb-2">{item.title}</h4>
+                <p className="text-code-sm text-on-surface-variant">{item.desc}</p>
+              </div>
+            ))}
+          </div>
           
           <div className="bg-[#1a1c1c] rounded-xl overflow-hidden mb-6">
             <div className="flex px-4 py-2 bg-[#2f3130] border-b border-border-subtle">
