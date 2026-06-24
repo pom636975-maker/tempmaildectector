@@ -768,11 +768,22 @@ async function reportResponse(project) {
 }
 
 async function patchProjectRow(tableName, rowId, projectId, updates) {
-  const { data, error } = await (await table(tableName))
-    .update({ ...updates, updated_at: now() })
+  const tableRef = await table(tableName);
+  const timestampedUpdates = { ...updates, updated_at: now() };
+  let { data, error } = await tableRef
+    .update(timestampedUpdates)
     .eq('id', rowId)
     .eq('project_id', projectId)
     .select();
+
+  if (error && /updated_at.*schema cache/i.test(error.message || '')) {
+    ({ data, error } = await tableRef
+      .update(updates)
+      .eq('id', rowId)
+      .eq('project_id', projectId)
+      .select());
+  }
+
   if (error) throw new Error(error.message);
   if (!data?.length) throw Object.assign(new Error('Not found'), { status: 404 });
   return data[0];
