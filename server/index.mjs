@@ -19,6 +19,7 @@ const admin = createAdminClient({ baseUrl: INSFORGE_URL, apiKey: INSFORGE_API_KE
 const publicClient = createClient({ baseUrl: INSFORGE_URL, anonKey: INSFORGE_ANON_KEY });
 
 const freeProviders = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com'];
+const trustedConsumerProviders = new Set(freeProviders);
 const protectedAreas = ['ai_credits', 'crm', 'email_list', 'analytics'];
 const mxCache = new Map();
 const lookupCache = new Map();
@@ -42,6 +43,25 @@ const observedDisposableDomains = [
   'snapmail.in',
   'mail.tm',
   'internxt.com',
+  'emailondeck.com',
+  'guerrillamail.com',
+  'guerrillamail.net',
+  'sharklasers.com',
+  'grr.la',
+  'guerrillamailblock.com',
+  'pokemail.net',
+  'spam4.me',
+  'mailinator.com',
+  'yopmail.com',
+  'maildrop.cc',
+  '10minutemail.com',
+  '10minutemail.net',
+  'tempmail.dev',
+  'tempmail.plus',
+  'tempmail.email',
+  'temp-mail.org',
+  'dispostable.com',
+  'moakt.com',
 ];
 const higherRiskTlds = new Set(['click', 'monster', 'quest', 'rest', 'sbs', 'shop', 'site', 'space', 'top', 'work', 'xyz']);
 const rateBuckets = new Map();
@@ -85,6 +105,7 @@ const signalCatalog = {
   suspicious_user_agent: ['device', 'medium', 'Request appears automated or is missing a normal browser user agent.'],
   vpn_detected: ['network', 'medium', 'IP pattern resembles a proxy, VPN, or non-residential network.'],
   free_email_provider: ['email', 'info', 'Email uses a common consumer mailbox provider.'],
+  trusted_consumer_email: ['email', 'trusted', 'Domain is a trusted consumer mailbox provider.'],
   business_domain: ['email', 'trusted', 'Domain has valid mail infrastructure and business-domain characteristics.'],
   low_quality_pattern: ['email', 'low', 'Mailbox name contains a generic test or placeholder pattern.'],
   random_email_pattern: ['email', 'low', 'Mailbox name contains a high mix of letters and digits.'],
@@ -198,11 +219,40 @@ async function inspectDomain(domain) {
 }
 
 function knownDomainIntel(domain) {
-  if (freeProviders.includes(domain)) return { hasMx: true, mxHosts: [], mxDisposableHint: false };
+  if (trustedConsumerProviders.has(domain)) return { hasMx: true, mxHosts: [], mxDisposableHint: false };
   if (isListedDomain(domain, observedDisposableDomains) || hasDisposableDomainHint(domain)) {
     return { hasMx: true, mxHosts: [], mxDisposableHint: true };
   }
   return null;
+}
+
+function normalizeTrustedConsumerResult(row, response) {
+  const { domain } = parseEmail(row.email);
+  if (!trustedConsumerProviders.has(domain)) return response;
+
+  const falsePositiveReasons = new Set(['missing_mx_record', 'free_email_provider']);
+  const normalizedReasons = response.reasons.filter((reason) => !falsePositiveReasons.has(reason));
+  const remainingPositiveReasons = normalizedReasons.filter((reason) => reason !== 'trusted_consumer_email');
+  const onlySoftSignals = remainingPositiveReasons.every((reason) => ['repeat_ip', 'low_quality_pattern', 'random_email_pattern'].includes(reason));
+
+  if (!onlySoftSignals) {
+    return { ...response, reasons: normalizedReasons.length ? normalizedReasons : ['trusted_consumer_email'] };
+  }
+
+  const riskScore = Math.min(response.riskScore || 0, remainingPositiveReasons.includes('repeat_ip') ? 25 : 15);
+  const reasons = normalizedReasons.includes('trusted_consumer_email')
+    ? normalizedReasons
+    : ['trusted_consumer_email', ...normalizedReasons];
+  return {
+    ...response,
+    riskScore,
+    decision: 'ALLOW',
+    status: 'approved',
+    reasons,
+    summary: 'Trusted consumer mailbox with no strong abuse indicators.',
+    recommendation: 'Continue signup normally unless later behavior becomes abusive.',
+    nextStep: 'create_account',
+  };
 }
 
 function authUserFrom(data) {
@@ -387,6 +437,7 @@ async function scoreSignup(input, internal = false) {
 
   const fallbackDisposableDomains = observedDisposableDomains;
   const domainIntel = knownDomainIntel(domain) || await inspectDomain(domain);
+  const isTrustedConsumerEmail = trustedConsumerProviders.has(domain);
   let riskScore = 0;
   const reasons = [];
   const signalPoints = {};
@@ -399,23 +450,23 @@ async function scoreSignup(input, internal = false) {
   };
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) add(70, 'invalid_email');
-  if (isDisposableDomain || isListedDomain(domain, fallbackDisposableDomains)) add(internal ? 70 : 45, 'temporary_email');
+  if (isDisposableDomain || isListedDomain(domain, fallbackDisposableDomains)) add(75, 'temporary_email');
   if (hasDisposableDomainHint(domain)) add(internal ? 45 : 30, 'temporary_email_pattern');
   if (domainIntel.mxDisposableHint) add(internal ? 55 : 35, 'temporary_email_mx');
-  if (domain && !domainIntel.hasMx) add(25, 'missing_mx_record');
-  const domainPatternRisk = domainAgeRisk(domain);
+  if (domain && !domainIntel.hasMx && !isTrustedConsumerEmail) add(35, 'missing_mx_record');
+  const domainPatternRisk = isTrustedConsumerEmail ? 0 : domainAgeRisk(domain);
   if (domainPatternRisk) add(domainPatternRisk, 'suspicious_domain_pattern');
-  if (higherRiskTlds.has(domain.split('.').pop())) add(8, 'higher_risk_tld');
+  if (!isTrustedConsumerEmail && higherRiskTlds.has(domain.split('.').pop())) add(8, 'higher_risk_tld');
   if (isBlockedDomain) add(internal ? 80 : 60, 'blocked_domain');
   if (isAllowedDomain) add(-20, 'allowed_domain');
   if (blockedIps.some((row) => row.ip_address === ip)) add(60, 'blocked_ip');
   if (allowedIps.some((row) => row.ip_address === ip)) add(-20, 'allowed_ip');
   if (!userAgent || /bot|curl|python|headless|scrapy/i.test(userAgent)) add(internal ? 15 : 10, 'suspicious_user_agent');
   if (/^(103\.|45\.|5\.188|198\.|192\.)/.test(ip)) add(20, 'vpn_detected');
-  if (freeProviders.includes(domain)) add(internal ? 5 : 0, 'free_email_provider');
-  if (domain && !freeProviders.includes(domain) && !isDisposableDomain && !isListedDomain(domain, fallbackDisposableDomains) && domainIntel.hasMx && !hasDisposableDomainHint(domain)) add(internal ? -10 : 0, 'business_domain');
-  if ((email || '').match(/test|admin|user123|demo/i)) add(10, 'low_quality_pattern');
-  if (hasLowQualityLocalPart(email)) add(10, 'random_email_pattern');
+  if (isTrustedConsumerEmail) add(-15, 'trusted_consumer_email');
+  if (!isTrustedConsumerEmail && domain && !isDisposableDomain && !isListedDomain(domain, fallbackDisposableDomains) && domainIntel.hasMx && !hasDisposableDomainHint(domain)) add(internal ? -10 : 0, 'business_domain');
+  if (!isTrustedConsumerEmail && (email || '').match(/test|admin|user123|demo/i)) add(10, 'low_quality_pattern');
+  if (!isTrustedConsumerEmail && hasLowQualityLocalPart(email)) add(10, 'random_email_pattern');
 
   const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
   const threeMinutesAgo = Date.now() - 3 * 60 * 1000;
@@ -427,7 +478,7 @@ async function scoreSignup(input, internal = false) {
   if (!internal && recentByIp.filter((event) => Date.parse(event.created_at) > tenMinutesAgo).length >= 20) add(55, 'ip_velocity_10m');
   if (internal && recentInternalByIp.filter((event) => Date.parse(event.created_at) > twoMinutesAgo).length >= 5) add(30, 'ip_velocity_2m');
   if (internal && recentInternalByIp.filter((event) => Date.parse(event.created_at) > tenMinutesAgo).length >= 20) add(55, 'ip_velocity_10m');
-  if (internal && recentInternalByIp.filter((event) => Date.parse(event.created_at) > oneHourAgo).length >= 3) add(20, 'repeat_ip');
+  if (internal && !isTrustedConsumerEmail && recentInternalByIp.filter((event) => Date.parse(event.created_at) > oneHourAgo).length >= 3) add(20, 'repeat_ip');
   const recentDeviceEvents = deviceId
     ? recentEvents.filter((event) => (
       event.device_id === deviceId
@@ -713,7 +764,7 @@ async function saveRiskEvent(input, result, keyRow, isTest = false) {
 function riskEventResponse(row) {
   const detail = row.raw_response || {};
   const decision = String(row.action || detail.action || 'ALLOW').toUpperCase();
-  return {
+  const response = {
     ...row,
     riskScore: row.risk_score ?? detail.riskScore ?? 0,
     decision,
@@ -731,11 +782,12 @@ function riskEventResponse(row) {
     submittedAt: row.created_at,
     status: decision === 'REVIEW' ? 'pending' : decision === 'ALLOW' ? 'approved' : 'blocked',
   };
+  return normalizeTrustedConsumerResult(row, response);
 }
 
 function internalSignupAttemptResponse(row) {
   const decision = String(row.action || 'REVIEW').toUpperCase();
-  return {
+  const response = {
     ...row,
     source: 'early_access',
     riskScore: row.risk_score ?? 0,
@@ -754,6 +806,7 @@ function internalSignupAttemptResponse(row) {
     submittedAt: row.created_at,
     status: decision === 'REVIEW' ? 'pending' : decision === 'ALLOW' ? 'approved' : 'blocked',
   };
+  return normalizeTrustedConsumerResult(row, response);
 }
 
 function isReviewQueueCandidate(row) {
