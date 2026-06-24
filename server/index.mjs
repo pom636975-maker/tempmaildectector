@@ -10,6 +10,13 @@ const INSFORGE_API_KEY = process.env.INSFORGE_API_KEY || process.env.API_KEY;
 const INSFORGE_ANON_KEY = process.env.INSFORGE_ANON_KEY || process.env.ANON_KEY || '';
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 const MAX_JSON_BYTES = Number(process.env.MAX_JSON_BYTES || 64 * 1024);
+const defaultAllowedOrigins = [
+  'https://stravotech.in',
+  'https://www.stravotech.in',
+  'https://tempmaildector.vercel.app',
+  'https://hoppscotch.io',
+  'https://app.hoppscotch.io',
+];
 
 if (!INSFORGE_API_KEY) {
   console.warn('INSFORGE_API_KEY/API_KEY is not set. Backend DB requests will fail until it is provided.');
@@ -511,10 +518,19 @@ async function readJson(req) {
   return chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {};
 }
 
+function corsOriginFor(origin = '') {
+  if (ALLOWED_ORIGIN === '*') return '*';
+  const configured = ALLOWED_ORIGIN.split(',').map((value) => value.trim()).filter(Boolean);
+  const allowed = new Set([...defaultAllowedOrigins, ...configured]);
+  if (origin && allowed.has(origin)) return origin;
+  return configured[0] || defaultAllowedOrigins[0];
+}
+
 function send(res, status, body, extraHeaders = {}) {
   res.writeHead(status, {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Origin': corsOriginFor(res.stravoOrigin),
+    'Vary': 'Origin',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
     'X-Content-Type-Options': 'nosniff',
@@ -885,6 +901,7 @@ async function deleteProjectRow(tableName, rowId, projectId) {
 
 export async function router(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  res.stravoOrigin = req.headers.origin || '';
   const requestId = req.headers['x-vercel-id'] || id('req');
   if (req.method === 'OPTIONS') return send(res, 204, {});
 
