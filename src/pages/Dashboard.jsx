@@ -53,18 +53,16 @@ export default function Dashboard() {
   );
 
   const totalDecisions = (metrics.allowCount || 0) + (metrics.reviewCount || 0) + (metrics.blockCount || 0);
-  const qualityScore = metrics.signupQualityScore || 84;
+  const qualityScore = metrics.signupQualityScore ?? 100;
+  const totalChecks = metrics.total_signup_checks ?? metrics.apiCallsToday ?? totalDecisions;
+  const blockedCount = metrics.fakeSignupsBlocked ?? metrics.blockCount ?? 0;
+  const allowedCount = metrics.allowCount ?? 0;
+  const reviewedCount = metrics.reviewCount ?? 0;
+  const processedCount = allowedCount + reviewedCount;
+  const percent = (value, total) => (total > 0 ? `${Math.min(100, Math.round((value / total) * 100))}%` : '0%');
   // Circumference for r=58 circle
   const circumference = 2 * Math.PI * 58; // 364.4
   const strokeDashoffset = circumference * (1 - qualityScore / 100);
-
-  const mockEvents = [
-    { email: 'user@tempmail.dev',       score: 89, reasons: ['temp_email', 'VPN'],   decision: 'BLOCK',   area: 'AI Credits + CRM',  time: '2 min ago' },
-    { email: 'trial@maildrop.cc',       score: 76, reasons: ['repeat_ip'],           decision: 'BLOCK',   area: 'Email List',         time: '8 min ago' },
-    { email: 'legit.founder@startup.io',score: 12, reasons: [],                      decision: 'ALLOW',   area: 'Full Product Access',time: '14 min ago' },
-    { email: 'test123@guerrillamail.com',score: 91, reasons: ['temp_email','velocity'],decision:'BLOCK',  area: 'AI Credits',         time: '21 min ago' },
-    { email: 'real.user@company.com',   score: 8,  reasons: [],                      decision: 'ALLOW',   area: 'Full Product Access',time: '35 min ago' },
-  ];
 
   const displayEvents = events.length > 0 ? events.map((e, i) => ({
     email: e.email,
@@ -73,7 +71,7 @@ export default function Dashboard() {
     decision: e.decision || e.action || 'ALLOW',
     area: e.protectedArea || e.protected_areas?.join(' + ') || 'AI Credits + CRM',
     time: new Date(e.timestamp || e.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-  })) : mockEvents;
+  })) : [];
 
   return (
     <div className="animate-count">
@@ -204,11 +202,11 @@ export default function Dashboard() {
         {/* ── Metric Grid ── */}
         <div className="col-span-12 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {[
-            { label: 'Fake signups blocked',    value: metrics.fakeSignupsBlocked || 289,         delta: '+18%',    deltaColor: 'text-status-risk',      barColor: 'bg-status-risk',      barW: '18%' },
-            { label: 'AI Credits Saved',         value: `$${metrics.aiCreditsSaved || 742}`,       delta: '+$128',   deltaColor: 'text-secondary',        barColor: 'bg-secondary',        barW: '65%' },
-            { label: 'Junk Contacts prevented',  value: metrics.junkContactsPrevented || 312,      delta: '63 today',deltaColor: 'text-status-warning',   barColor: 'bg-status-warning',   barW: '40%' },
-            { label: 'Marketing Waste Protected',value: `$${metrics.marketingWasteProtected || 186}`,delta: '+9%',  deltaColor: 'text-status-protected', barColor: 'bg-status-protected', barW: '25%' },
-            { label: 'Risky Signup Rate',        value: `${metrics.riskySignupRate || 33.1}%`,    delta: '-4.2%',   deltaColor: 'text-status-warning',   barColor: 'bg-status-warning',   barW: '33%' },
+            { label: 'Fake signups blocked', value: blockedCount, delta: 'real data', deltaColor: 'text-status-risk', barColor: 'bg-status-risk', barW: percent(blockedCount, totalChecks) },
+            { label: 'AI Credits Saved', value: metrics.aiCreditsSaved || '$0', delta: 'estimated', deltaColor: 'text-secondary', barColor: 'bg-secondary', barW: percent(blockedCount, totalChecks) },
+            { label: 'Junk Contacts prevented', value: metrics.junkContactsPrevented || 0, delta: 'real data', deltaColor: 'text-status-warning', barColor: 'bg-status-warning', barW: percent(blockedCount, totalChecks) },
+            { label: 'Marketing Waste Protected', value: metrics.marketingWasteProtected || '$0', delta: 'estimated', deltaColor: 'text-status-protected', barColor: 'bg-status-protected', barW: percent(blockedCount, totalChecks) },
+            { label: 'Risky Signup Rate', value: `${metrics.riskySignupRate ?? 0}%`, delta: 'live', deltaColor: 'text-status-warning', barColor: 'bg-status-warning', barW: `${Math.min(100, metrics.riskySignupRate ?? 0)}%` },
           ].map(({ label, value, delta, deltaColor, barColor, barW }) => (
             <div key={label} className="bg-white border border-border-subtle p-6 rounded-xl metric-card-hover transition-all">
               <p className="font-label-caps text-[10px] text-on-surface-variant mb-4 uppercase tracking-wider">{label}</p>
@@ -265,9 +263,9 @@ export default function Dashboard() {
           <h3 className="font-headline-sm text-[18px] mb-8">Funnel Protection Flow</h3>
           <div className="flex flex-col gap-6">
             {[
-              { icon: 'description',   iconBg: 'bg-surface-container-low border border-border-subtle', iconColor: 'text-on-surface-variant', barColor: 'bg-primary',          barW: '100%',   value: '1,248', label: 'Signups',   valueColor: '' },
-              { icon: 'verified_user', iconBg: 'bg-secondary/10 border border-secondary/20',            iconColor: 'text-secondary',          barColor: null,                  barW: null,     value: '289',   label: 'Blocked',  valueColor: 'text-status-risk' },
-              { icon: 'hub',           iconBg: 'bg-status-protected/10 border border-status-protected/20',iconColor:'text-status-protected',  barColor: 'bg-status-protected', barW: '67%',    value: '959',   label: 'Processed',valueColor: '' },
+              { icon: 'description', iconBg: 'bg-surface-container-low border border-border-subtle', iconColor: 'text-on-surface-variant', barColor: 'bg-primary', barW: totalChecks > 0 ? '100%' : '0%', value: totalChecks.toLocaleString(), label: 'Signups', valueColor: '' },
+              { icon: 'verified_user', iconBg: 'bg-secondary/10 border border-secondary/20', iconColor: 'text-secondary', barColor: null, barW: null, value: blockedCount.toLocaleString(), label: 'Blocked', valueColor: 'text-status-risk' },
+              { icon: 'hub', iconBg: 'bg-status-protected/10 border border-status-protected/20', iconColor:'text-status-protected', barColor: 'bg-status-protected', barW: percent(processedCount, totalChecks), value: processedCount.toLocaleString(), label: 'Processed', valueColor: '' },
             ].map(({ icon, iconBg, iconColor, barColor, barW, value, label, valueColor }, i) => (
               <div key={i} className="flex items-center gap-4">
                 <div className={`w-12 h-12 ${iconBg} rounded-lg flex items-center justify-center`}>
@@ -276,8 +274,8 @@ export default function Dashboard() {
                 <div className="flex-1 h-3 bg-surface-container rounded-full overflow-hidden flex">
                   {i === 1 ? (
                     <>
-                      <div className="bg-secondary h-full w-[67%]" />
-                      <div className="bg-status-risk h-full w-[33%]" />
+                      <div className="bg-secondary h-full" style={{ width: percent(processedCount, totalChecks) }} />
+                      <div className="bg-status-risk h-full" style={{ width: percent(blockedCount, totalChecks) }} />
                     </>
                   ) : (
                     <div className={`${barColor} h-full`} style={{ width: barW }} />
@@ -374,7 +372,7 @@ export default function Dashboard() {
           </div>
           <div className="px-8 py-4 bg-surface-container-low border-t border-border-subtle text-right">
             <Link to="/dashboard/risk-events" className="text-secondary font-bold text-code-sm hover:underline">
-              View all 1,248 events
+              View all {totalChecks.toLocaleString()} events
             </Link>
           </div>
         </div>
