@@ -17,6 +17,17 @@ const defaultAllowedOrigins = [
   'https://hoppscotch.io',
   'https://app.hoppscotch.io',
 ];
+const securityHeaders = {
+  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://vercel.live; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://stravotech.in https://www.stravotech.in https://hp7mm277.us-east.insforge.app https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://vitals.vercel-insights.com https://vercel.live wss://*.insforge.app; frame-src 'self' https://accounts.google.com; manifest-src 'self'; media-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests",
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'accelerometer=(), ambient-light-sensor=(), autoplay=(), bluetooth=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), hid=(), idle-detection=(), local-fonts=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(self), screen-wake-lock=(), serial=(), usb=(), web-share=(), xr-spatial-tracking=()',
+  'Cross-Origin-Embedder-Policy': 'credentialless',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+};
 
 if (!INSFORGE_API_KEY) {
   console.warn('INSFORGE_API_KEY/API_KEY is not set. Backend DB requests will fail until it is provided.');
@@ -529,12 +540,11 @@ function corsOriginFor(origin = '') {
 function send(res, status, body, extraHeaders = {}) {
   res.writeHead(status, {
     'Content-Type': 'application/json',
+    ...securityHeaders,
     'Access-Control-Allow-Origin': corsOriginFor(res.stravoOrigin),
     'Vary': 'Origin',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-    'X-Content-Type-Options': 'nosniff',
-    'Referrer-Policy': 'no-referrer',
     'Cache-Control': 'no-store',
     ...extraHeaders,
   });

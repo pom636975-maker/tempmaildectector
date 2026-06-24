@@ -3,6 +3,15 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  margin: 0;
+  background: #faf9f8;
+}
+
+html:not(.fonts-ready) .material-symbols-outlined {
+  font-size: 0 !important;
+}
+
 :root {
   --bg:                #FDFCFB; /* Stitch premium brand linen background */
   --surface:           #ffffff;
