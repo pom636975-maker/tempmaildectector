@@ -30,7 +30,8 @@ async function request(path, options = {}, attempt = 0) {
       window.dispatchEvent(new CustomEvent('stravo:auth-expired'));
     }
     const requestSuffix = body.requestId ? ` (Request ${body.requestId})` : '';
-    const error = new Error(`${body.message || body.error || 'Request failed'}${requestSuffix}`);
+    const serverMessage = body.error?.message || body.message || (typeof body.error === 'string' ? body.error : '') || 'Request failed';
+    const error = new Error(`${serverMessage}${requestSuffix}`);
     error.status = res.status;
     throw error;
   }

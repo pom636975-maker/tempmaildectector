@@ -14,8 +14,12 @@ const defaultAllowedOrigins = [
   'https://stravotech.in',
   'https://www.stravotech.in',
   'https://tempmaildector.vercel.app',
+  'https://tempmaildetector.vercel.app',
   'https://hoppscotch.io',
   'https://app.hoppscotch.io',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5500',
 ];
 const securityHeaders = {
   'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://vercel.live; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://stravotech.in https://www.stravotech.in https://hp7mm277.us-east.insforge.app https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://vitals.vercel-insights.com https://vercel.live wss://*.insforge.app; frame-src 'self' https://accounts.google.com; manifest-src 'self'; media-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests",
@@ -96,6 +100,16 @@ const ratePolicies = [
 const id = (prefix) => `${prefix}_${crypto.randomBytes(8).toString('hex')}`;
 const now = () => new Date().toISOString();
 const hash = (value) => crypto.createHash('sha256').update(value).digest('hex');
+
+function apiError(code, message, status = 400, details = {}) {
+  return Object.assign(new Error(message), { code, status, details });
+}
+
+function maskApiKey(key = '') {
+  const value = String(key);
+  if (!value) return '';
+  return `${value.slice(0, 15)}********${value.slice(-4)}`;
+}
 
 function parseEmail(email = '') {
   const normalized = String(email).trim().toLowerCase();
@@ -326,17 +340,20 @@ function authUserFromToken(token) {
 
 function validateSignupCheckPayload(input) {
   const { email } = parseEmail(input.email);
+  if (!String(input.email || '').trim()) {
+    throw apiError('EMAIL_REQUIRED', 'email is required.', 400);
+  }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw Object.assign(new Error('A valid email is required.'), { status: 400 });
+    throw apiError('INVALID_EMAIL', 'Please provide a valid email address.', 400);
   }
   if (input.ip && !/^[a-f0-9:.]{3,45}$/i.test(String(input.ip))) {
-    throw Object.assign(new Error('IP address is invalid.'), { status: 400 });
+    throw apiError('INVALID_IP', 'IP address is invalid.', 400);
   }
   if (input.deviceId && String(input.deviceId).length > 128) {
-    throw Object.assign(new Error('Device ID is too long.'), { status: 400 });
+    throw apiError('DEVICE_ID_TOO_LONG', 'Device ID is too long.', 400);
   }
   if (input.userAgent && String(input.userAgent).length > 512) {
-    throw Object.assign(new Error('User agent is too long.'), { status: 400 });
+    throw apiError('USER_AGENT_TOO_LONG', 'User agent is too long.', 400);
   }
   return {
     email,
@@ -345,6 +362,29 @@ function validateSignupCheckPayload(input) {
     userAgent: input.userAgent ? String(input.userAgent) : '',
     event: input.event ? String(input.event).slice(0, 64) : 'signup',
     metadata: typeof input.metadata === 'object' && input.metadata !== null ? input.metadata : {},
+  };
+}
+
+function getSignupApiKey(req, body = {}) {
+  const bearer = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+  const headerKey = String(req.headers['x-api-key'] || '').trim();
+  const bodyKey = String(body.apiKey || '').trim();
+  const apiKey = bearer || headerKey || bodyKey;
+
+  if (!apiKey) {
+    throw apiError('AUTH_REQUIRED', 'Valid STRAVOTECH API key is required.', 401);
+  }
+  if (!/^sk_stravo_(test|live)_[a-z0-9]+$/i.test(apiKey)) {
+    throw apiError('INVALID_API_KEY_FORMAT', 'API key must start with sk_stravo_test_ or sk_stravo_live_.', 401);
+  }
+  if (bodyKey && !/^sk_stravo_test_/i.test(bodyKey)) {
+    throw apiError('INVALID_API_KEY_FORMAT', 'Body apiKey is only allowed for sk_stravo_test_ keys. Use Authorization or X-API-Key for live keys.', 401);
+  }
+
+  return {
+    apiKey,
+    mode: /^sk_stravo_test_/i.test(apiKey) ? 'test' : 'live',
+    source: bearer ? 'authorization' : headerKey ? 'x-api-key' : 'body',
   };
 }
 
@@ -526,41 +566,65 @@ async function readJson(req) {
     }
     chunks.push(chunk);
   }
-  return chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {};
+  if (!chunks.length) return {};
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch {
+    throw apiError('INVALID_JSON', 'Request body must be valid JSON.', 400);
+  }
 }
 
-function corsOriginFor(origin = '') {
-  if (ALLOWED_ORIGIN === '*') return '*';
+function corsOriginFor(origin = '', projectOrigins = []) {
+  const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
+  if (ALLOWED_ORIGIN === '*' && !isProduction) return '*';
   const configured = ALLOWED_ORIGIN.split(',').map((value) => value.trim()).filter(Boolean);
-  const allowed = new Set([...defaultAllowedOrigins, ...configured]);
+  const allowed = new Set([...defaultAllowedOrigins, ...configured, ...projectOrigins]);
   if (origin && allowed.has(origin)) return origin;
   return configured[0] || defaultAllowedOrigins[0];
 }
 
 function send(res, status, body, extraHeaders = {}) {
+  const requestId = res.stravoRequestId || id('req');
+  const isJsonObject = body && typeof body === 'object' && !Array.isArray(body);
+  const responseBody = isJsonObject && !body.requestId ? { ...body, requestId } : body;
   res.writeHead(status, {
     'Content-Type': 'application/json',
     ...securityHeaders,
-    'Access-Control-Allow-Origin': corsOriginFor(res.stravoOrigin),
+    'Access-Control-Allow-Origin': corsOriginFor(res.stravoOrigin, res.stravoProjectOrigins || []),
     'Vary': 'Origin',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-API-Key',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+    'X-Request-Id': requestId,
     'Cache-Control': 'no-store',
     ...extraHeaders,
   });
-  res.end(JSON.stringify(body));
+  res.end(JSON.stringify(responseBody));
+}
+
+function sendError(res, error) {
+  const status = error.status || 500;
+  const code = error.code || (status === 401 ? 'AUTH_REQUIRED' : status === 404 ? 'NOT_FOUND' : 'INTERNAL_SERVER_ERROR');
+  const message = status >= 500 ? 'Internal server error.' : (error.message || 'Request failed.');
+  return send(res, status, {
+    success: false,
+    error: {
+      code,
+      message,
+      details: error.details || {},
+    },
+  });
 }
 
 async function requireUser(req) {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!token) throw Object.assign(new Error('Authentication required'), { status: 401 });
+  if (!token) throw apiError('AUTH_REQUIRED', 'Authentication required', 401);
   const client = createClient({ baseUrl: INSFORGE_URL, anonKey: INSFORGE_ANON_KEY });
   client.setAccessToken(token);
   const { data, error } = await client.auth.getCurrentUser();
   const currentUser = authUserFrom(data) || authUserFromToken(token);
   if (!currentUser) {
     console.warn('Unable to resolve authenticated user', { sdkError: error?.message || error?.error || '' });
-    throw Object.assign(new Error('Authentication required'), { status: 401 });
+    throw apiError('AUTH_REQUIRED', 'Authentication required', 401);
   }
   return upsertProfile(currentUser);
 }
@@ -910,27 +974,49 @@ async function deleteProjectRow(tableName, rowId, projectId) {
 }
 
 export async function router(req, res) {
+  const startedAt = Date.now();
   const url = new URL(req.url, `http://${req.headers.host}`);
   res.stravoOrigin = req.headers.origin || '';
-  const requestId = req.headers['x-vercel-id'] || id('req');
+  const requestId = id('req');
+  res.stravoRequestId = requestId;
   if (req.method === 'OPTIONS') return send(res, 204, {});
 
   try {
     pruneRateBuckets();
     const limited = checkRateLimit(req, url);
     if (limited) {
-      return send(res, limited.status, { message: limited.message }, { 'Retry-After': String(limited.retryAfter) });
+      return send(res, limited.status, {
+        success: false,
+        error: {
+          code: 'RATE_LIMITED',
+          message: limited.message,
+          details: { retryAfter: limited.retryAfter },
+        },
+      }, { 'Retry-After': String(limited.retryAfter) });
     }
 
     const contentLength = Number(req.headers['content-length'] || 0);
-    if (contentLength > MAX_JSON_BYTES) throw Object.assign(new Error('Request body too large'), { status: 413 });
+    if (contentLength > MAX_JSON_BYTES) throw apiError('REQUEST_TOO_LARGE', 'Request body too large', 413);
 
     const body = ['POST', 'PATCH', 'DELETE'].includes(req.method) ? await readJson(req) : {};
+
+    if (url.pathname === '/api/health' && req.method === 'GET') {
+      return send(res, 200, {
+        success: true,
+        status: 'ok',
+        service: 'STRAVOTECH API',
+        timestamp: now(),
+      });
+    }
+
+    if (url.pathname === '/api/v1/check-signup' && req.method === 'GET') {
+      throw apiError('METHOD_NOT_ALLOWED', 'Use POST /api/v1/check-signup to run a signup risk check.', 405);
+    }
 
     if (req.method === 'POST' && url.pathname === '/api/early-access') {
       const parsed = parseEmail(body.email);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parsed.email)) {
-        throw Object.assign(new Error('Enter a valid email address.'), { status: 400 });
+        throw apiError('INVALID_EMAIL', 'Enter a valid email address.', 400);
       }
       const result = await scoreSignup({
         email: parsed.email,
@@ -939,7 +1025,7 @@ export async function router(req, res) {
         deviceId: '',
       }, true);
       if (result.action === 'BLOCK') {
-        throw Object.assign(new Error('Please use a real Gmail or work email for early access.'), { status: 400 });
+        throw apiError('TEMPORARY_EMAIL_BLOCKED', 'Please use a real Gmail or work email for early access.', 400);
       }
       const { data: existing, error: existingError } = await (await table('internal_signup_attempts'))
         .select('id')
@@ -963,7 +1049,7 @@ export async function router(req, res) {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/auth/signup') {
-      return send(res, 403, { message: 'STRAVOTECH is currently in closed beta. Join early access instead.' });
+      return send(res, 403, { success: false, error: { code: 'CLOSED_BETA', message: 'STRAVOTECH is currently in closed beta. Join early access instead.', details: {} } });
     }
 
     if (false && req.method === 'POST' && url.pathname === '/api/auth/signup') {
@@ -1037,22 +1123,25 @@ export async function router(req, res) {
     }
 
     if (url.pathname === '/api/v1/check-signup' && req.method === 'POST') {
-      const apiKey = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-      if (!apiKey.startsWith('sk_stravo_')) throw Object.assign(new Error('Invalid API key format'), { status: 401 });
+      const { apiKey, mode, source: authSource } = getSignupApiKey(req, body);
       const { data: keys, error } = await (await table('api_keys')).select('*').eq('key_hash', hash(apiKey));
       if (error) throw new Error(error.message);
       const keyRow = keys?.[0];
-      if (!keyRow || keyRow.status !== 'active') throw Object.assign(new Error('Invalid or revoked API key'), { status: 401 });
-      if (!hasScope(keyRow, 'signup:check')) throw Object.assign(new Error('API key is missing signup:check scope'), { status: 403 });
+      if (!keyRow || keyRow.status !== 'active') throw apiError('AUTH_REQUIRED', 'Valid STRAVOTECH API key is required.', 401);
+      if (!hasScope(keyRow, 'signup:check')) throw apiError('MISSING_SCOPE', 'API key is missing signup:check scope.', 403);
       const { data: keyProject, error: projectError } = await (await table('projects')).select('*').eq('id', keyRow.project_id).single();
       if (projectError) throw new Error(projectError.message);
+      if (keyProject.domain) {
+        const domain = String(keyProject.domain).replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
+        res.stravoProjectOrigins = [`https://${domain}`, `https://www.${domain}`];
+      }
       const { data: billing, error: billingError } = await (await table('billing_usage')).select('*').eq('workspace_id', keyProject.workspace_id).single();
       if (billingError) throw new Error(billingError.message);
-      if (billing.checks_used >= billing.monthly_limit) throw Object.assign(new Error('Billing usage limit reached'), { status: 402 });
+      if (billing.checks_used >= billing.monthly_limit) throw apiError('BILLING_LIMIT_REACHED', 'Billing usage limit reached.', 402);
       const payload = validateSignupCheckPayload(body);
       const result = await scoreSignup(payload);
       const [event] = await Promise.all([
-        saveRiskEvent(payload, result, keyRow, false),
+        saveRiskEvent(payload, result, keyRow, mode === 'test'),
         (async () => {
           const { error: usageError } = await (await table('api_keys')).update({ last_used_at: now(), usage_count: (keyRow.usage_count || 0) + 1 }).eq('id', keyRow.id);
           if (usageError) throw new Error(usageError.message);
@@ -1062,7 +1151,26 @@ export async function router(req, res) {
           if (billingUpdateError) throw new Error(billingUpdateError.message);
         })(),
       ]);
-      return send(res, 200, { ...result, eventId: event.id });
+      const latencyMs = Date.now() - startedAt;
+      console.log('[signup-check]', {
+        requestId,
+        projectId: keyRow.project_id,
+        status: 200,
+        latencyMs,
+        riskScore: result.riskScore,
+        action: result.action,
+        mode,
+        authSource,
+        apiKey: maskApiKey(apiKey),
+      });
+      return send(res, 200, {
+        success: true,
+        ...result,
+        signals: result.signals.map((signal) => ({ ...signal, explanation: signal.explanation || signal.detail || '' })),
+        eventId: event.id,
+        latencyMs,
+        mode,
+      });
     }
 
     const user = await requireUser(req);
@@ -1214,16 +1322,20 @@ export async function router(req, res) {
       return send(res, 200, { ok: true });
     }
 
-    return send(res, 404, { message: 'Not found' });
+    throw apiError('NOT_FOUND', 'Not found', 404);
   } catch (error) {
+    const status = error.status || 500;
+    const errorCode = error.code || (status === 404 ? 'NOT_FOUND' : status === 401 ? 'AUTH_REQUIRED' : 'INTERNAL_SERVER_ERROR');
     console.error('[api] request failed', {
       requestId,
       method: req.method,
       path: url.pathname,
-      status: error.status || 500,
+      status,
+      latencyMs: Date.now() - startedAt,
+      errorCode,
       message: error.message || 'Server error',
     });
-    return send(res, error.status || 500, { message: error.message || 'Server error', requestId });
+    return sendError(res, error);
   }
 }
 
