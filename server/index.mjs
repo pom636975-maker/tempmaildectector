@@ -159,7 +159,7 @@ function enrichRiskResult(riskScore, action, reasons, signalPoints = {}) {
     : action === 'REVIEW'
       ? 'Require email verification or CAPTCHA, hold free credits, and approve automatically only after the challenge succeeds.'
       : 'Continue signup normally. Keep monitoring post-signup velocity and credit usage.';
-  const nextStep = action === 'BLOCK' ? 'deny_signup' : action === 'REVIEW' ? 'step_up_verification' : 'create_account';
+  const nextStep = action === 'BLOCK' ? 'deny_signup' : action === 'REVIEW' ? 'manual_review_or_limited_access' : 'create_account';
   const confidence = Math.min(99, Math.max(55, Math.round(58 + Math.abs(riskScore - 40) * 0.7 + signals.filter((signal) => ['high', 'critical'].includes(signal.severity)).length * 6)));
   const summary = action === 'ALLOW'
     ? 'Low-risk signup with no strong abuse indicators.'

@@ -18,6 +18,8 @@ REVIEW -> verify the user first and hold free credits
 BLOCK  -> stop the signup before the user enters the product
 ```
 
+`BLOCK` and `REVIEW` are successful risk decisions, not API failures. STRAVOTECH returns HTTP 200 for valid checks, even when the decision is `BLOCK`. Your app should decide what user-facing response to show based on the `action` field.
+
 Never put the STRAVOTECH API key inside frontend JavaScript, browser code, or a public GitHub repo.
 
 ## Base URL
@@ -124,7 +126,15 @@ Actions:
 ```text
 ALLOW  - create the account normally
 REVIEW - require verification/CAPTCHA and hold free credits until the challenge succeeds
-BLOCK  - reject the signup before account creation and do not grant product access
+BLOCK  - do not create the account; show a user-facing blocked message
+```
+
+Important:
+
+```text
+BLOCK is a successful risk decision, not an API error.
+Do not rely on HTTP 403 for risk decisions.
+Use error status codes only for technical/API errors such as invalid input or missing API keys.
 ```
 
 ## Node.js Example
@@ -161,14 +171,25 @@ const risk = await checkSignupRisk({
 });
 
 if (risk.action === 'BLOCK') {
-  throw new Error('Signup blocked by risk policy');
+  return {
+    allowed: false,
+    message: 'Signup blocked. Disposable or risky email detected. Please use a permanent email address.',
+    risk,
+  };
 }
 
 if (risk.action === 'REVIEW') {
-  // Create a pending user, but do not grant credits or CRM access yet.
+  return {
+    allowed: false,
+    message: 'Signup needs extra verification before full access.',
+    risk,
+  };
 }
 
-// ALLOW: continue normal signup.
+return {
+  allowed: true,
+  risk,
+};
 ```
 
 ## Express Middleware Example
@@ -191,15 +212,23 @@ app.post('/signup', async (req, res) => {
   }).then((r) => r.json());
 
   if (risk.action === 'BLOCK') {
-    return res.status(403).json({ message: 'Please use a real email address.' });
+    return res.status(200).json({
+      allowed: false,
+      message: 'Signup blocked. Disposable or risky email detected. Please use a permanent email address.',
+      risk,
+    });
   }
 
   if (risk.action === 'REVIEW') {
-    return res.status(202).json({ message: 'Signup pending review.' });
+    return res.status(200).json({
+      allowed: false,
+      message: 'Signup needs extra verification before full access.',
+      risk,
+    });
   }
 
   // Create account here.
-  return res.status(201).json({ ok: true });
+  return res.status(200).json({ allowed: true, risk });
 });
 ```
 

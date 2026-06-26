@@ -127,7 +127,22 @@ const result = await response.json();`;
 
 const risk = await response.json();
 if (!risk.success) throw new Error(risk.error.message);
-if (risk.action === "BLOCK") return res.status(403).json({ message: "Signup blocked" });`;
+if (risk.action === "BLOCK") {
+  return res.status(200).json({
+    allowed: false,
+    message: "Signup blocked. Disposable or risky email detected. Please use a permanent email address.",
+    risk
+  });
+}
+if (risk.action === "REVIEW") {
+  return res.status(200).json({
+    allowed: false,
+    message: "Signup needs extra verification before full access.",
+    risk
+  });
+}
+
+return res.status(200).json({ allowed: true, risk });`;
 
   const nextRoute = `// app/api/signup/route.ts
 export async function POST(request: Request) {
@@ -143,10 +158,22 @@ export async function POST(request: Request) {
 
   const risk = await riskRes.json();
   if (risk.action === "BLOCK") {
-    return Response.json({ message: "Use a real email address." }, { status: 403 });
+    return Response.json({
+      allowed: false,
+      message: "Signup blocked. Disposable or risky email detected. Please use a permanent email address.",
+      risk
+    });
   }
 
-  return Response.json({ ok: true });
+  if (risk.action === "REVIEW") {
+    return Response.json({
+      allowed: false,
+      message: "Signup needs extra verification before full access.",
+      risk
+    });
+  }
+
+  return Response.json({ allowed: true, risk });
 }`;
 
   const errorExample = `{
@@ -250,6 +277,26 @@ export async function POST(request: Request) {
       </div>
 
       <div className="bg-white border border-border-subtle rounded-xl p-8">
+        <h3 className="font-headline-sm text-[18px] mb-4">Decision Handling</h3>
+        <div className="space-y-2 text-code-sm text-on-surface-variant mb-6">
+          <p><strong className="text-status-risk">BLOCK</strong> is a successful risk decision, not an API error.</p>
+          <p>Your app should decide whether to deny signup, limit access, or allow account creation based on the <code>action</code> field.</p>
+          <p>Do not rely on HTTP 403 for risk decisions. STRAVOTECH uses error status codes only for technical/API errors.</p>
+        </div>
+        <CodeBlock title="Decision pattern">{`const result = await stravotech.checkSignup(...);
+
+if (result.action === "BLOCK") {
+  return showBlockedMessage();
+}
+
+if (result.action === "REVIEW") {
+  return showReviewMessage();
+}
+
+return createAccount();`}</CodeBlock>
+      </div>
+
+      <div className="bg-white border border-border-subtle rounded-xl p-8 mt-8">
         <h3 className="font-headline-sm text-[18px] mb-4">CORS Notes</h3>
         <p className="text-code-sm text-on-surface-variant">
           STRAVOTECH returns JSON for success and errors. Browser calls from approved origins receive matching CORS headers.

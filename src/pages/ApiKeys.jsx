@@ -87,6 +87,7 @@ export default function ApiKeys() {
    REVIEW -> verify the user first and hold free credits
    BLOCK  -> stop the signup
 
+BLOCK is a successful risk decision, not an API error.
 Never put the API key in frontend or browser code.`;
   const curlExample = `curl -X POST ${apiEndpoint} \\
   -H "Authorization: Bearer ${exampleKey}" \\
@@ -108,16 +109,25 @@ Never put the API key in frontend or browser code.`;
 
 const risk = await response.json();
 if (risk.action === "BLOCK") {
-  throw new Error("Signup blocked by STRAVOTECH");
+  return {
+    allowed: false,
+    message: "Signup blocked. Disposable or risky email detected. Please use a permanent email address.",
+    risk
+  };
 }
 if (risk.action === "REVIEW") {
-  return requireEmailVerification({
-    holdFreeCredits: true,
-    reason: risk.summary
-  });
+  return {
+    allowed: false,
+    message: "Signup needs extra verification before full access.",
+    risk
+  };
 }
 
-return createAccount();`;
+return {
+  allowed: true,
+  account: await createAccount(),
+  risk
+};`;
 
   return (
     <div>
@@ -235,7 +245,7 @@ return createAccount();`;
               <div className="space-y-2 text-code-sm">
                 <p><span className="font-bold text-status-protected">ALLOW</span> - this user looks safe. Let them in.</p>
                 <p><span className="font-bold text-status-warning">REVIEW</span> - ask for extra verification before giving credits.</p>
-                <p><span className="font-bold text-status-risk">BLOCK</span> - stop the signup before they enter your product.</p>
+                <p><span className="font-bold text-status-risk">BLOCK</span> - successful risk decision. Show a blocked message; do not treat it as an API error.</p>
               </div>
             </div>
           </div>
