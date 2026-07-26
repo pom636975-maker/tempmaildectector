@@ -99,4 +99,6 @@ export const removeAllowlistEntry = (id) => request(`/api/allowlist/${id}`, { me
 // ── Admin APIs ──
 export const getAdminMetrics = () => request('/api/admin/metrics');
 export const getAdminUsers = () => request('/api/admin/users');
+export const updateAdminUser = (id, updates) => request(`/api/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(updates) });
+export const deleteAdminUser = (id) => request(`/api/admin/users/${id}`, { method: 'DELETE' });
 export const getAdminSubscriptions = () => request('/api/admin/subscriptions');
