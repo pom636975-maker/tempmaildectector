@@ -1209,6 +1209,51 @@ export async function router(req, res) {
         mode,
       });
     }
+    // ── Admin API Endpoints ──
+    const ADMIN_EMAILS = ['ompatel6355@gmail.com'];
+
+    if (url.pathname.startsWith('/api/admin/')) {
+      const adminUser = await requireUser(req);
+      if (!ADMIN_EMAILS.includes(adminUser.email?.toLowerCase())) {
+        throw apiError('FORBIDDEN', 'Admin access required.', 403);
+      }
+
+      if (url.pathname === '/api/admin/metrics') {
+        const [profilesResult, subscriptionsResult, riskEventsResult] = await Promise.all([
+          (await table('profiles')).select('*').order('created_at', { ascending: false }),
+          (await table('subscriptions')).select('*').order('created_at', { ascending: false }),
+          (await table('risk_events')).select('id').order('created_at', { ascending: false }).limit(500),
+        ]);
+        const profiles = profilesResult.data || [];
+        const subs = subscriptionsResult.data || [];
+        const riskEvents = riskEventsResult.data || [];
+        const activeSubscriptions = subs.filter(s => s.status === 'active').length;
+        const totalRevenue = subs
+          .filter(s => s.status === 'active' || s.status === 'completed')
+          .reduce((sum, s) => sum + (Number(s.amount) || 1200), 0);
+        return send(res, 200, {
+          totalUsers: profiles.length,
+          activeSubscriptions,
+          totalRevenue,
+          riskEventsBlocked: riskEvents.length,
+          recentSignups: profiles.slice(0, 10),
+        });
+      }
+
+      if (url.pathname === '/api/admin/users') {
+        const { data, error: usersError } = await (await table('profiles')).select('*').order('created_at', { ascending: false });
+        if (usersError) throw new Error(usersError.message);
+        return send(res, 200, data || []);
+      }
+
+      if (url.pathname === '/api/admin/subscriptions') {
+        const { data, error: subsError } = await (await table('subscriptions')).select('*').order('created_at', { ascending: false });
+        if (subsError) throw new Error(subsError.message);
+        return send(res, 200, data || []);
+      }
+
+      throw apiError('NOT_FOUND', 'Admin endpoint not found', 404);
+    }
 
     const user = await requireUser(req);
     const context = await ensureUserContext(user);

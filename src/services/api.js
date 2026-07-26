@@ -95,3 +95,8 @@ export const getAllowlist = () => request('/api/allowlist');
 export const addAllowlistEntry = (payload) =>
   request('/api/allowlist', { method: 'POST', body: JSON.stringify(payload) });
 export const removeAllowlistEntry = (id) => request(`/api/allowlist/${id}`, { method: 'DELETE' });
+
+// ── Admin APIs ──
+export const getAdminMetrics = () => request('/api/admin/metrics');
+export const getAdminUsers = () => request('/api/admin/users');
+export const getAdminSubscriptions = () => request('/api/admin/subscriptions');

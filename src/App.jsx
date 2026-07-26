@@ -23,6 +23,11 @@ import FunnelProtection from './pages/FunnelProtection';
 import Subscription from './pages/Subscription';
 import SubscriptionResult from './pages/SubscriptionResult';
 import SubscriptionGuard from './components/SubscriptionGuard';
+import AdminRoute from './components/AdminRoute';
+import AdminLayout from './components/AdminLayout';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminSubscriptions from './pages/admin/AdminSubscriptions';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isDashboardEnabled, loading } = useAuth();
@@ -64,6 +69,11 @@ export default function App() {
             <Route path="review-queue" element={<ReviewQueue />} />
             <Route path="projects" element={<Projects />} />
             <Route path="funnel-protection" element={<FunnelProtection />} />
+          </Route>
+          <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="subscriptions" element={<AdminSubscriptions />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

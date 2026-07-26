@@ -109,6 +109,16 @@ export default function DashboardLayout() {
               <span className="font-label-caps text-label-caps">{label}</span>
             </NavLink>
           ))}
+          {user && ['ompatel6355@gmail.com'].includes(user.email?.toLowerCase()) && (
+            <NavLink
+              to="/admin"
+              onClick={() => setMobileOpen(false)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#0058be] hover:bg-surface-container-low transition-colors font-semibold"
+            >
+              <span className="material-symbols-outlined text-[20px] text-[#0058be]">admin_panel_settings</span>
+              <span className="font-label-caps text-label-caps">Admin Panel</span>
+            </NavLink>
+          )}
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors"
