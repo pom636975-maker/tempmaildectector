@@ -3,9 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
 
 const ADMIN_NAV = [
-  { to: '/admin',              label: 'Dashboard',      end: true, icon: 'space_dashboard' },
-  { to: '/admin/users',        label: 'Users',          icon: 'group' },
-  { to: '/admin/subscriptions', label: 'Subscriptions', icon: 'payments' },
+  { to: '/admin',              label: 'Dashboard',       end: true, icon: 'space_dashboard' },
+  { to: '/admin/users',        label: 'Users Control',   icon: 'group' },
+  { to: '/admin/subscriptions', label: 'Subscriptions',  icon: 'payments' },
+  { to: '/admin/settings',     label: 'System Controls', icon: 'tune' },
+  { to: '/admin/global-rules', label: 'Global Rules',   icon: 'gavel' },
 ];
 
 const ADMIN_BOTTOM = [

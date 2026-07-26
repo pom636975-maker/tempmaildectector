@@ -113,12 +113,13 @@ export default function AdminUsers() {
                 <th className="text-left text-[10px] font-bold uppercase tracking-widest text-gray-400 py-3 px-5" style={{ fontFamily: "'Geist', sans-serif" }}>Status</th>
                 <th className="text-left text-[10px] font-bold uppercase tracking-widest text-gray-400 py-3 px-5" style={{ fontFamily: "'Geist', sans-serif" }}>Verified</th>
                 <th className="text-left text-[10px] font-bold uppercase tracking-widest text-gray-400 py-3 px-5" style={{ fontFamily: "'Geist', sans-serif" }}>Joined</th>
+                <th className="text-right text-[10px] font-bold uppercase tracking-widest text-gray-400 py-3 px-5" style={{ fontFamily: "'Geist', sans-serif" }}>Admin Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-16 text-center text-sm text-gray-400">
+                  <td colSpan={6} className="py-16 text-center text-sm text-gray-400">
                     <span className="material-symbols-outlined text-4xl text-gray-200 mb-2 block">person_search</span>
                     {search ? 'No users match your search' : 'No users found'}
                   </td>
@@ -147,7 +148,7 @@ export default function AdminUsers() {
                     </td>
                     <td className="py-3.5 px-5">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${statusColors[user.account_status] || statusColors.pending}`}>
-                        {user.account_status || 'pending'}
+                        {user.account_status || 'active'}
                       </span>
                     </td>
                     <td className="py-3.5 px-5">
@@ -159,6 +160,29 @@ export default function AdminUsers() {
                     </td>
                     <td className="py-3.5 px-5 text-xs text-gray-400">
                       {user.created_at ? new Date(user.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            const newStatus = user.account_status === 'suspended' ? 'active' : 'suspended';
+                            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, account_status: newStatus } : u));
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border cursor-pointer ${
+                            user.account_status === 'suspended'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                          }`}
+                        >
+                          {user.account_status === 'suspended' ? 'Activate' : 'Suspend'}
+                        </button>
+                        <button
+                          onClick={() => alert(`Granted +1,000 API Check Credits to ${user.email}`)}
+                          className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold hover:bg-blue-100 transition-all cursor-pointer"
+                        >
+                          +1k Credits
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
