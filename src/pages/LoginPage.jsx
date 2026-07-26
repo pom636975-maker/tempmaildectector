@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { joinEarlyAccess, authApi } from '../services/api';
 
 export default function LoginPage() {
-  const { login, authError, isAuthenticated, isDashboardEnabled } = useAuth();
+  const { user, login, authError, isAuthenticated, isDashboardEnabled } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
