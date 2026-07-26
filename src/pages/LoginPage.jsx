@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { joinEarlyAccess } from '../services/api';
+import { joinEarlyAccess, authApi } from '../services/api';
 
 export default function LoginPage() {
   const { login, authError, isAuthenticated, isDashboardEnabled } = useAuth();
@@ -15,6 +15,11 @@ export default function LoginPage() {
   const [earlyAccessLoading, setEarlyAccessLoading] = useState(false);
   const [earlyAccessMessage, setEarlyAccessMessage] = useState('');
   const [liveRiskScore, setLiveRiskScore] = useState(89);
+
+  // Forgot Password state
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   // Simulating live activity for visual effect
   useEffect(() => {
@@ -47,7 +52,11 @@ export default function LoginPage() {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message);
+      let msg = err.message || 'Login failed.';
+      if (msg.includes('Invalid credentials')) {
+        msg = 'Invalid email or password.';
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -68,9 +77,26 @@ export default function LoginPage() {
     }
   };
 
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    setNotice('');
+    setResetLoading(true);
+    try {
+      await authApi.resetPassword(resetEmail);
+      setNotice(`Reset link sent to ${resetEmail} if it exists in our system.`);
+      setIsForgotPassword(false);
+      setResetEmail('');
+    } catch (err) {
+      setError(err.message || 'Failed to send reset link.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row overflow-hidden bg-brand-warm text-[#101828] antialiased">
-      
+
       {/* Styles local to the login page */}
       <style dangerouslySetInnerHTML={{__html: `
         .glass-panel {
@@ -102,20 +128,20 @@ export default function LoginPage() {
         <div className="absolute inset-0 z-0 opacity-40 dot-matrix"></div>
         <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-login-primary/5 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-5%] left-[-5%] w-[400px] h-[400px] bg-login-tertiary-container/5 rounded-full blur-[80px]"></div>
-        
+
         <div className="relative z-10 max-w-xl mx-auto w-full">
           <div className="mb-12">
             <Link to="/" className="font-headline-md text-headline-md font-bold tracking-tighter text-[#101828] uppercase hover:no-underline">
               STRAVOTECH
             </Link>
           </div>
-          
+
           <h1 className="font-headline-lg text-headline-lg mb-4 text-brand-navy">Welcome back to cleaner growth.</h1>
           <p className="font-body-lg text-body-lg text-login-on-surface-variant mb-12">Monitor risky signups, protect AI credits, and keep fake users out of your product, CRM, and email list.</p>
-          
+
           {/* Dashboard Visualization Area */}
           <div className="space-y-gutter">
-            
+
             {/* Mini Dashboard Card */}
             <div className="glass-panel p-panel-padding rounded-xl shadow-sm border-login-outline-variant">
               <div className="flex items-center justify-between mb-6">
@@ -125,7 +151,7 @@ export default function LoginPage() {
                   <span className="font-label-mono text-label-mono text-green-600">LIVE MONITORING</span>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-login-surface-container-lowest p-4 border border-login-outline-variant/50 rounded-lg">
                   <p className="font-label-caps text-label-caps text-login-outline mb-1">RISKY BLOCKED</p>
@@ -201,10 +227,10 @@ export default function LoginPage() {
         </div>
       </section>
 
-      {/* Right Panel: Login Form */}
+      {/* Right Panel: Login Form / Forgot Password */}
       <main className="flex-1 bg-white flex flex-col items-center justify-center px-margin-mobile md:px-24 py-12">
         <div className="w-full max-w-md space-y-8">
-          
+
           {/* Header */}
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
             <div className="mb-12 md:hidden">
@@ -215,8 +241,12 @@ export default function LoginPage() {
             <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">
               <span className="h-2 w-2 rounded-full bg-blue-500" /> CLOSED BETA
             </div>
-            <h2 className="font-headline-lg text-headline-lg text-brand-navy mb-2">Sign in to STRAVOTECH</h2>
-            <p className="font-body-md text-body-md text-login-outline">Existing beta members can access the dashboard.</p>
+            <h2 className="font-headline-lg text-headline-lg text-brand-navy mb-2">
+              {isForgotPassword ? 'Reset Password' : 'Sign in to STRAVOTECH'}
+            </h2>
+            <p className="font-body-md text-body-md text-login-outline">
+              {isForgotPassword ? 'Enter your email to receive a password reset link.' : 'Existing beta members can access the dashboard.'}
+            </p>
           </div>
 
           {(error || authError) && (
@@ -230,73 +260,129 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="font-label-caps text-label-caps text-login-on-surface-variant" htmlFor="email">EMAIL ADDRESS</label>
-                <input 
-                  className="w-full h-12 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary focus:border-login-primary transition-all outline-none text-body-md placeholder:text-login-outline/50 shadow-sm" 
-                  id="email" 
-                  name="email" 
-                  placeholder="name@company.com" 
-                  required 
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <label className="font-label-caps text-label-caps text-login-on-surface-variant" htmlFor="password">PASSWORD</label>
-                  <a className="font-label-caps text-label-caps text-login-primary hover:underline hover:no-underline" href="#">Forgot password?</a>
+          {/* Forms */}
+          {isForgotPassword ? (
+            // Forgot Password Form
+            <form onSubmit={handleForgotPassword} className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="font-label-caps text-label-caps text-login-on-surface-variant" htmlFor="resetEmail">EMAIL ADDRESS</label>
+                  <input
+                    className="w-full h-12 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary focus:border-login-primary transition-all outline-none text-body-md placeholder:text-login-outline/50 shadow-sm"
+                    id="resetEmail"
+                    name="resetEmail"
+                    placeholder="name@company.com"
+                    required
+                    type="email"
+                    value={resetEmail}
+                    onChange={e => setResetEmail(e.target.value)}
+                  />
                 </div>
-                <input 
-                  className="w-full h-12 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary focus:border-login-primary transition-all outline-none text-body-md placeholder:text-login-outline/50 shadow-sm" 
-                  id="password" 
-                  name="password" 
-                  placeholder="••••••••" 
-                  required 
-                  type="password"
-                  minLength={8}
-                  maxLength={72}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                />
-                <p className="text-xs text-login-outline">8 to 72 characters</p>
               </div>
-            </div>
+              <button
+                className="w-full h-12 bg-login-primary text-white font-headline-md text-body-lg rounded-lg shadow-lg shadow-login-primary/20 hover:bg-login-primary-container active:scale-[0.98] transition-all flex items-center justify-center inner-glow cursor-pointer disabled:opacity-50"
+                type="submit"
+                disabled={resetLoading}
+              >
+                {resetLoading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsForgotPassword(false)}
+                  className="text-sm font-bold text-login-primary hover:underline"
+                >
+                  Back to Sign In
+                </button>
+              </div>
+            </form>
+          ) : (
+            // Login Form
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="font-label-caps text-label-caps text-login-on-surface-variant" htmlFor="email">EMAIL ADDRESS</label>
+                  <input
+                    className="w-full h-12 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary focus:border-login-primary transition-all outline-none text-body-md placeholder:text-login-outline/50 shadow-sm"
+                    id="email"
+                    name="email"
+                    placeholder="name@company.com"
+                    required
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="font-label-caps text-label-caps text-login-on-surface-variant" htmlFor="password">PASSWORD</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsForgotPassword(true)}
+                      className="font-label-caps text-label-caps text-login-primary hover:underline hover:no-underline pointer-events-auto"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <input
+                    className="w-full h-12 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary focus:border-login-primary transition-all outline-none text-body-md placeholder:text-login-outline/50 shadow-sm"
+                    id="password"
+                    name="password"
+                    placeholder="••••••••"
+                    required
+                    type="password"
+                    minLength={8}
+                    maxLength={72}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                  />
+                  <p className="text-xs text-login-outline">8 to 72 characters</p>
+                </div>
+              </div>
 
-            <button 
-              className="w-full h-12 bg-login-primary text-white font-headline-md text-body-lg rounded-lg shadow-lg shadow-login-primary/20 hover:bg-login-primary-container active:scale-[0.98] transition-all flex items-center justify-center inner-glow cursor-pointer" 
-              type="submit"
-              disabled={loading}
-            >
-              {loading ? 'Please wait...' : 'Sign In'}
-            </button>
-          </form>
+              <button
+                className="w-full h-12 bg-login-primary text-white font-headline-md text-body-lg rounded-lg shadow-lg shadow-login-primary/20 hover:bg-login-primary-container active:scale-[0.98] transition-all flex items-center justify-center inner-glow cursor-pointer disabled:opacity-50"
+                type="submit"
+                disabled={loading}
+              >
+                {loading ? 'Please wait...' : 'Sign In'}
+              </button>
+            </form>
+          )}
 
           <div className="border-t border-login-outline-variant pt-7 text-left space-y-4">
             <div>
-              <p className="font-headline-sm text-lg text-brand-navy">Not invited yet?</p>
-              <p className="mt-1 text-sm text-login-outline">Join the beta waitlist. We will email you when access opens.</p>
+              <p className="font-headline-sm text-lg text-brand-navy">Don't have an account?</p>
+              <p className="mt-1 text-sm text-login-outline mb-3">
+                Join our platform to monitor risky signups in your SaaS.
+              </p>
+              <Link to="/signup" className="text-login-primary font-bold hover:underline">
+                Register here →
+              </Link>
             </div>
-            <form className="flex flex-col sm:flex-row gap-3" onSubmit={handleEarlyAccess}>
-              <input
-                className="min-w-0 flex-1 h-11 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary outline-none text-sm"
-                type="email"
-                required
-                placeholder="you@gmail.com"
-                value={earlyAccessEmail}
-                onChange={event => setEarlyAccessEmail(event.target.value)}
-              />
-              <button className="h-11 px-5 rounded-lg border border-login-primary text-login-primary font-bold hover:bg-blue-50 disabled:opacity-50" disabled={earlyAccessLoading} type="submit">
-                {earlyAccessLoading ? 'Joining...' : 'Join Early Access'}
-              </button>
-            </form>
-            {earlyAccessMessage && <p className="text-sm text-login-primary">{earlyAccessMessage}</p>}
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-4 border-t border-login-outline-variant/30">
+            {/* Keeping Early Access logic intact just in case */}
+            <div className="pt-4 mt-4 border-t border-login-outline-variant/30">
+              <div>
+                <p className="font-headline-sm text-sm text-brand-navy">Want to join early access?</p>
+              </div>
+              <form className="flex flex-col sm:flex-row gap-3 mt-2" onSubmit={handleEarlyAccess}>
+                <input
+                  className="min-w-0 flex-1 h-11 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary outline-none text-sm"
+                  type="email"
+                  required
+                  placeholder="you@gmail.com"
+                  value={earlyAccessEmail}
+                  onChange={event => setEarlyAccessEmail(event.target.value)}
+                />
+                <button className="h-11 px-5 rounded-lg border border-login-primary text-login-primary font-bold hover:bg-blue-50 disabled:opacity-50" disabled={earlyAccessLoading} type="submit">
+                  {earlyAccessLoading ? 'Joining...' : 'Join Waitlist'}
+                </button>
+              </form>
+              {earlyAccessMessage && <p className="text-sm text-login-primary mt-2">{earlyAccessMessage}</p>}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-4 mt-2">
               <div className="flex items-center gap-1.5 text-login-outline">
                 <span className="material-symbols-outlined text-[14px]">lock</span>
                 <span className="font-label-caps text-[10px]">SECURE LOGIN</span>

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getBillingPlans, getBillingUsage } from '../services/api';
 
 export default function Billing() {
+  const navigate = useNavigate();
   const [billingPlans, setBillingPlans] = useState([]);
   const [billingUsage, setBillingUsage] = useState({
     plan: 'Growth',
@@ -56,7 +58,7 @@ export default function Billing() {
                 {billingUsage.checksUsed.toLocaleString()} of {billingUsage.checksLimit.toLocaleString()} risk checks used this cycle. Next invoice: {billingUsage.nextInvoice}.
               </p>
             </div>
-            <button className="w-fit bg-primary text-on-primary px-6 py-3 rounded-lg font-label-caps text-label-caps font-bold hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2">
+            <button onClick={() => navigate('/subscription')} className="w-fit bg-primary text-on-primary px-6 py-3 rounded-lg font-label-caps text-label-caps font-bold hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2">
               Upgrade Plan
               <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
             </button>
@@ -138,7 +140,7 @@ export default function Billing() {
                 </li>
               ))}
             </ul>
-            <button className={`w-full py-3 rounded-lg font-label-caps text-label-caps font-bold transition-colors ${
+            <button onClick={() => !plan.current && navigate('/subscription')} className={`w-full py-3 rounded-lg font-label-caps text-label-caps font-bold transition-colors ${
               plan.current
                 ? 'bg-surface-container-low border border-border-subtle text-on-surface-variant cursor-default'
                 : 'bg-primary text-on-primary hover:bg-on-primary-fixed-variant'

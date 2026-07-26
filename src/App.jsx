@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import DashboardLayout from './components/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import RiskEvents from './pages/RiskEvents';
@@ -19,6 +20,9 @@ import RiskSimulator from './pages/RiskSimulator';
 import ReviewQueue from './pages/ReviewQueue';
 import Projects from './pages/Projects';
 import FunnelProtection from './pages/FunnelProtection';
+import Subscription from './pages/Subscription';
+import SubscriptionResult from './pages/SubscriptionResult';
+import SubscriptionGuard from './components/SubscriptionGuard';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isDashboardEnabled, loading } = useAuth();
@@ -40,7 +44,10 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+          <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
+          <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+          <Route path="/subscription/result" element={<ProtectedRoute><SubscriptionResult /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><SubscriptionGuard><DashboardLayout /></SubscriptionGuard></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="risk-events" element={<RiskEvents />} />
             <Route path="api-keys" element={<ApiKeys />} />
