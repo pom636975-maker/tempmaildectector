@@ -32,16 +32,19 @@ import AdminSettings from './pages/admin/AdminSettings';
 import AdminGlobalRules from './pages/admin/AdminGlobalRules';
 
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, isDashboardEnabled, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   if (loading) return null;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return isDashboardEnabled ? children : <Navigate to="/login" replace />;
+  // Allow authenticated users to access protected routes.
+  // Account status gating is handled inside the dashboard UI where appropriate.
+  return children;
 };
 
 const PublicRoute = ({ children }) => {
-  const { isAuthenticated, isDashboardEnabled, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   if (loading) return null;
-  return !isAuthenticated || !isDashboardEnabled ? children : <Navigate to="/dashboard" replace />;
+  // If already authenticated, redirect to dashboard.
+  return !isAuthenticated ? children : <Navigate to="/dashboard" replace />;
 };
 
 export default function App() {

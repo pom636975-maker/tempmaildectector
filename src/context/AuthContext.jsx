@@ -45,6 +45,8 @@ export const AuthProvider = ({ children }) => {
 
         const { user: currentUser } = await authApi.me();
         setUser(currentUser);
+        // debug: log current user/session info to help diagnose redirect issues
+        try { console.debug('AuthContext.syncSession setUser', { currentUser, token }); } catch (e) {}
         localStorage.setItem('stravo_user', JSON.stringify(currentUser));
         if (completedOAuth) sessionStorage.setItem('stravo_oauth_complete', '1');
       } catch (err) {
@@ -73,6 +75,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('stravo_user', JSON.stringify(nextUser));
     setAuthError('');
     setUser(nextUser);
+    try { console.debug('AuthContext.login setUser', { nextUser, accessToken }); } catch (e) {}
     return nextUser;
   }, []);
 

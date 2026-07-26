@@ -33,6 +33,7 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
+    try { console.debug('LoginPage useEffect', { isAuthenticated, isDashboardEnabled, user }); } catch (e) {}
     if (isAuthenticated && isDashboardEnabled) {
       const isAdmin = user?.email?.toLowerCase() === 'pom636975@gmail.com';
       navigate(isAdmin ? '/admin' : '/dashboard', { replace: true });
@@ -52,6 +53,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const loggedInUser = await login(email, password);
+      try { console.debug('LoginPage handleSubmit loggedInUser', { loggedInUser }); } catch (e) {}
       const isAdmin = loggedInUser?.email?.toLowerCase() === 'pom636975@gmail.com';
       navigate(isAdmin ? '/admin' : '/dashboard');
     } catch (err) {
