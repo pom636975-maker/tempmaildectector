@@ -1210,7 +1210,7 @@ export async function router(req, res) {
       });
     }
     // ── Admin API Endpoints ──
-    const ADMIN_EMAILS = ['ompatel6355@gmail.com'];
+    const ADMIN_EMAILS = ['pom636975@gmail.com'];
 
     if (url.pathname.startsWith('/api/admin/')) {
       const adminUser = await requireUser(req);

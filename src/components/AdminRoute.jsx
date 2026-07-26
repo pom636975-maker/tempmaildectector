@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const ADMIN_EMAILS = ['ompatel6355@gmail.com'];
+const ADMIN_EMAILS = ['pom636975@gmail.com'];
 
 export default function AdminRoute({ children }) {
   const { user, isAuthenticated, loading } = useAuth();

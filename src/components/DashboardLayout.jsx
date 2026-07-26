@@ -109,7 +109,7 @@ export default function DashboardLayout() {
               <span className="font-label-caps text-label-caps">{label}</span>
             </NavLink>
           ))}
-          {user && ['ompatel6355@gmail.com'].includes(user.email?.toLowerCase()) && (
+          {user && ['pom636975@gmail.com'].includes(user.email?.toLowerCase()) && (
             <NavLink
               to="/admin"
               onClick={() => setMobileOpen(false)}

@@ -34,14 +34,16 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && isDashboardEnabled) {
-      navigate('/dashboard', { replace: true });
+      const isAdmin = user?.email?.toLowerCase() === 'pom636975@gmail.com';
+      navigate(isAdmin ? '/admin' : '/dashboard', { replace: true });
       return;
     }
     if (sessionStorage.getItem('stravo_oauth_complete') === '1') {
       sessionStorage.removeItem('stravo_oauth_complete');
-      navigate('/dashboard', { replace: true });
+      const isAdmin = user?.email?.toLowerCase() === 'pom636975@gmail.com';
+      navigate(isAdmin ? '/admin' : '/dashboard', { replace: true });
     }
-  }, [isAuthenticated, isDashboardEnabled, navigate]);
+  }, [isAuthenticated, isDashboardEnabled, navigate, user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,8 +51,9 @@ export default function LoginPage() {
     setNotice('');
     setLoading(true);
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      const loggedInUser = await login(email, password);
+      const isAdmin = loggedInUser?.email?.toLowerCase() === 'pom636975@gmail.com';
+      navigate(isAdmin ? '/admin' : '/dashboard');
     } catch (err) {
       let msg = err.message || 'Login failed.';
       if (msg.includes('Invalid credentials')) {
