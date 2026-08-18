@@ -1,0 +1,1 @@
+# StravoTech backend schemas package.

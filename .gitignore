@@ -26,3 +26,8 @@ dist-ssr
 .vercel
 .env*
 *.local
+
+stravotech/backend/.venv/
+
+__pycache__/
+*.pyc
