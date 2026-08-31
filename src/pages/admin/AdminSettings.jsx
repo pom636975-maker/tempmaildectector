@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getAdminSettings, updateAdminSettings } from '../../services/api';
 
 export default function AdminSettings() {
   const [protectionMode, setProtectionMode] = useState('standard');
@@ -6,12 +7,48 @@ export default function AdminSettings() {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const handleSave = (e) => {
+  useEffect(() => {
+    getAdminSettings()
+      .then((data) => {
+        setProtectionMode(data.protection_mode || 'standard');
+        setDefaultLimit(data.default_limit || 1000);
+        setMaintenanceMode(data.maintenance_mode || false);
+        setAnnouncement(data.announcement || '');
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message || 'Failed to load system settings');
+        setLoading(false);
+      });
+  }, []);
+
+  const handleSave = async (e) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setError('');
+    try {
+      await updateAdminSettings({
+        protection_mode: protectionMode,
+        default_limit: defaultLimit,
+        maintenance_mode: maintenanceMode,
+        announcement: announcement,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      setError(err.message || 'Failed to save system settings');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <div className="w-8 h-8 border-2 border-secondary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl">
@@ -32,6 +69,13 @@ export default function AdminSettings() {
         <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium rounded-xl flex items-center gap-2" style={{ animation: 'adminSlideUp 0.3s ease-out both' }}>
           <span className="material-symbols-outlined text-[20px]">check_circle</span>
           System settings saved successfully!
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 text-sm font-medium rounded-xl flex items-center gap-2" style={{ animation: 'adminSlideUp 0.3s ease-out both' }}>
+          <span className="material-symbols-outlined text-[20px]">error_outline</span>
+          {error}
         </div>
       )}
 

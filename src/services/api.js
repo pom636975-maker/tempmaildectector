@@ -46,6 +46,7 @@ export const authApi = {
   me: () => request('/api/auth/me'),
   logout: () => request('/api/auth/logout', { method: 'POST' }),
   resetPassword: (email) => request('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ email }) }),
+  updatePassword: (email, otp, password) => request('/api/auth/update-password', { method: 'POST', body: JSON.stringify({ email, otp, password }) }),
 };
 
 export const joinEarlyAccess = (email) =>
@@ -99,6 +100,11 @@ export const removeAllowlistEntry = (id) => request(`/api/allowlist/${id}`, { me
 // ── Admin APIs ──
 export const getAdminMetrics = () => request('/api/admin/metrics');
 export const getAdminUsers = () => request('/api/admin/users');
-export const updateAdminUser = (id, updates) => request(`/api/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(updates) });
+export const updateAdminUser = (id, payload) => request(`/api/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
 export const deleteAdminUser = (id) => request(`/api/admin/users/${id}`, { method: 'DELETE' });
 export const getAdminSubscriptions = () => request('/api/admin/subscriptions');
+export const getAdminReviewSignups = () => request('/api/admin/signups-review');
+export const updateAdminSignupStatus = (id, action) => request(`/api/admin/signups-review/${id}/${action}`, { method: 'POST' });
+export const getAdminSettings = () => request('/api/admin/settings');
+export const updateAdminSettings = (payload) => request('/api/admin/settings', { method: 'PATCH', body: JSON.stringify(payload) });
+export const getPublicConfig = () => request('/api/config');

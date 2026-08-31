@@ -30,6 +30,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import AdminSubscriptions from './pages/admin/AdminSubscriptions';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminGlobalRules from './pages/admin/AdminGlobalRules';
+import AdminReview from './pages/admin/AdminReview';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -81,6 +82,7 @@ export default function App() {
             <Route path="subscriptions" element={<AdminSubscriptions />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="global-rules" element={<AdminGlobalRules />} />
+            <Route path="review" element={<AdminReview />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -1,6 +1,7 @@
+import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useState } from 'react';
+import { getPublicConfig } from '../services/api';
 
 const NAV_ITEMS = [
   { to: '/dashboard',                   label: 'Overview',          end: true, icon: 'dashboard' },
@@ -29,6 +30,15 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [announcement, setAnnouncement] = useState('');
+
+  useEffect(() => {
+    getPublicConfig()
+      .then((data) => {
+        if (data?.announcement) setAnnouncement(data.announcement);
+      })
+      .catch((err) => console.error('Failed to load global config:', err));
+  }, []);
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
@@ -109,7 +119,7 @@ export default function DashboardLayout() {
               <span className="font-label-caps text-label-caps">{label}</span>
             </NavLink>
           ))}
-          {user && ['pom636975@gmail.com'].includes(user.email?.toLowerCase()) && (
+          {user && user.is_admin && (
             <NavLink
               to="/admin"
               onClick={() => setMobileOpen(false)}
@@ -173,6 +183,17 @@ export default function DashboardLayout() {
 
       {/* ── Page Content ── */}
       <main className="md:ml-64 pt-16 min-h-screen">
+        {announcement && (
+          <div className="bg-blue-600 text-white px-6 py-3 flex items-center justify-between text-sm font-medium">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[20px]">campaign</span>
+              <span>{announcement}</span>
+            </div>
+            <button onClick={() => setAnnouncement('')} className="hover:opacity-80">
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
+        )}
         <div className="px-margin-desktop py-12 max-w-[1440px]">
           <Outlet />
         </div>

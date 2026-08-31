@@ -6,7 +6,7 @@ import { createAdminClient, createClient } from '@insforge/sdk';
 
 const PORT = Number(process.env.PORT || 8787);
 const INSFORGE_URL = process.env.INSFORGE_URL || 'https://hp7mm277.us-east.insforge.app';
-const INSFORGE_API_KEY = process.env.INSFORGE_API_KEY || process.env.API_KEY;
+const INSFORGE_API_KEY = process.env.INSFORGE_API_KEY || process.env.API_KEY || '';
 const INSFORGE_ANON_KEY = process.env.INSFORGE_ANON_KEY || process.env.ANON_KEY || '';
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 const MAX_JSON_BYTES = Number(process.env.MAX_JSON_BYTES || 64 * 1024);
@@ -46,6 +46,26 @@ const protectedAreas = ['ai_credits', 'crm', 'email_list', 'analytics'];
 const mxCache = new Map();
 const lookupCache = new Map();
 const LOOKUP_CACHE_MS = 5 * 60 * 1000;
+
+let cachedGlobalSettings = null;
+let settingsCacheExpiresAt = 0;
+
+async function getGlobalSettings() {
+  if (cachedGlobalSettings && settingsCacheExpiresAt > Date.now()) {
+    return cachedGlobalSettings;
+  }
+  try {
+    const { data, error } = await (await table('global_settings')).select('*').eq('id', 'default').maybeSingle();
+    if (!error && data) {
+      cachedGlobalSettings = data;
+      settingsCacheExpiresAt = Date.now() + 10000; // Cache for 10 seconds
+      return data;
+    }
+  } catch (e) {
+    console.error('Failed to fetch global settings:', e);
+  }
+  return cachedGlobalSettings || { protection_mode: 'standard', default_limit: 1000, maintenance_mode: false, announcement: '' };
+}
 const disposableDomainHints = [
   '10minute', '20minute', 'temp-mail', 'tempmail', 'throwaway', 'trashmail',
   'guerrilla', 'guerrillamail', 'maildrop', 'mailinator', 'yopmail',
@@ -440,8 +460,9 @@ async function table(name) {
     const builder = () => ({
       select: () => builder(), eq: () => builder(), order: () => builder(), limit: () => builder(),
       insert: () => builder(), update: () => builder(), delete: () => builder(), gte: () => builder(), upsert: () => builder(),
+      maybeSingle: async () => ({ data: name === 'profiles' ? { id: 'test-user-id', is_admin: true } : { id: 'mock' }, error: null }),
       single: async () => ({ data: { id: 'mock', workspace_id: 'ws_test', project_id: 'proj_test', checks_used: 0, monthly_limit: 1000 }, error: null }),
-      then: (resolve) => resolve({ data: [{ id: 'mock', workspace_id: 'ws_test', project_id: 'proj_test', account_status: 'active', email_verified: true }], error: null })
+      then: (resolve) => resolve({ data: [{ id: 'mock', workspace_id: 'ws_test', project_id: 'proj_test', account_status: 'active', email_verified: true, is_admin: true }], error: null })
     });
     return {
       select: () => builder(), eq: () => builder(), order: () => builder(), limit: () => builder(),
@@ -642,7 +663,15 @@ async function requireUser(req) {
     console.warn('Unable to resolve authenticated user', { sdkError: error?.message || error?.error || '' });
     throw apiError('AUTH_REQUIRED', 'Authentication required', 401);
   }
-  return upsertProfile(currentUser);
+  const profile = await upsertProfile(currentUser);
+  
+  // Check maintenance mode
+  const settings = await getGlobalSettings();
+  if (settings?.maintenance_mode && !profile.is_admin) {
+    throw apiError('MAINTENANCE_MODE', 'The platform is currently undergoing maintenance. Please try again later.', 503);
+  }
+  
+  return profile;
 }
 
 async function upsertProfile(user) {
@@ -663,12 +692,31 @@ async function upsertProfile(user) {
     account_status: 'active',
   };
   try {
-    const { data, error } = await (await table('profiles')).upsert(dbProfile).select();
+    // First, fetch existing profile to preserve is_admin and other protected fields
+    const { data: existing, error: fetchError } = await (await table('profiles')).select('is_admin').eq('id', user.id).maybeSingle();
+    if (fetchError) {
+      console.warn('[upsertProfile] fetch error:', fetchError.message);
+    }
+    const existingIsAdmin = existing?.is_admin;
+    console.log('[upsertProfile DEBUG] user.id:', user.id, 'email:', user.email, 'existingIsAdmin:', existingIsAdmin);
+
+    // Include is_admin in upsert payload to prevent default (false) from overwriting true
+    const upsertPayload = {
+      ...dbProfile,
+      is_admin: existingIsAdmin ?? false,
+    };
+
+    const fallbackProfile = { ...fullProfile, is_admin: existingIsAdmin ?? false };
+
+    const { data, error } = await (await table('profiles')).upsert(upsertPayload).select();
     if (error) {
       console.warn('[upsertProfile] DB warning:', error.message);
-      return fullProfile;
+      return fallbackProfile;
     }
-    return { ...fullProfile, ...(data?.[0] || {}) };
+
+    const profile = data?.[0] || {};
+    console.log('[upsertProfile DEBUG] final profile.is_admin:', profile.is_admin);
+    return { ...fullProfile, ...profile };
   } catch (err) {
     console.warn('[upsertProfile] error:', err.message);
     return fullProfile;
@@ -1050,6 +1098,14 @@ export async function router(req, res) {
       });
     }
 
+    if (url.pathname === '/api/config' && req.method === 'GET') {
+      const settings = await getGlobalSettings();
+      return send(res, 200, {
+        maintenance_mode: settings?.maintenance_mode || false,
+        announcement: settings?.announcement || '',
+      });
+    }
+
     if (url.pathname === '/api/v1/check-signup' && req.method === 'GET') {
       throw apiError('METHOD_NOT_ALLOWED', 'Use POST /api/v1/check-signup to run a signup risk check.', 405);
     }
@@ -1155,6 +1211,13 @@ export async function router(req, res) {
       const signedInUser = authUserFrom(data);
       if (!signedInUser) throw Object.assign(new Error('Could not read signed-in user from InsForge.'), { status: 502 });
       const profile = await upsertProfile(signedInUser);
+      
+      // Check maintenance mode
+      const settings = await getGlobalSettings();
+      if (settings?.maintenance_mode && !profile.is_admin) {
+        throw apiError('MAINTENANCE_MODE', 'The platform is currently undergoing maintenance. Please try again later.', 503);
+      }
+      
       await ensureUserContext(profile);
       return send(res, 200, { user: profile, accessToken: accessTokenFrom(data) });
     }
@@ -1164,6 +1227,20 @@ export async function router(req, res) {
     if (url.pathname === '/api/auth/reset-password') {
       await publicClient.auth.sendResetPasswordEmail({ email: body.email, redirectTo: `${req.headers.origin || 'http://localhost:5173'}/login` }).catch(() => {});
       return send(res, 200, { ok: true });
+    }
+
+    if (url.pathname === '/api/auth/update-password' && req.method === 'POST') {
+      const { email, otp, password } = body;
+      const tempClient = createClient({ baseUrl: INSFORGE_URL, anonKey: INSFORGE_ANON_KEY, auth: { persistSession: false } });
+      
+      const { data: exchangeData, error: exchangeError } = await tempClient.auth.exchangeResetPasswordToken({ email, code: otp });
+      if (exchangeError) throw Object.assign(new Error(exchangeError.message), { status: exchangeError.statusCode || 400 });
+      if (!exchangeData?.token) throw Object.assign(new Error('Failed to get reset token'), { status: 500 });
+      
+      const { error: resetError } = await tempClient.auth.resetPassword({ newPassword: password, otp: exchangeData.token });
+      if (resetError) throw Object.assign(new Error(resetError.message), { status: resetError.statusCode || 400 });
+      
+      return send(res, 200, { ok: true, message: 'Password updated successfully. You can now log in.' });
     }
 
     if (url.pathname === '/api/v1/check-signup' && req.method === 'POST') {
@@ -1217,55 +1294,66 @@ export async function router(req, res) {
       });
     }
     // ── Admin API Endpoints ──
-    const ADMIN_EMAILS = ['pom636975@gmail.com'];
-
     if (url.pathname.startsWith('/api/admin/')) {
       const adminUser = await requireUser(req);
-      if (!ADMIN_EMAILS.includes(adminUser.email?.toLowerCase())) {
+      if (!adminUser.is_admin) {
+        console.log('[DEBUG] Admin access denied for user:', adminUser);
         throw apiError('FORBIDDEN', 'Admin access required.', 403);
       }
 
       if (url.pathname === '/api/admin/metrics') {
         try {
-          const [profilesResult, subscriptionsResult, riskEventsResult] = await Promise.all([
-            (await table('profiles')).select('*').catch(() => ({ data: [] })),
-            (await table('subscriptions')).select('*').catch(() => ({ data: [] })),
-            (await table('risk_events')).select('id').limit(500).catch(() => ({ data: [] })),
-          ]);
-          const profiles = profilesResult?.data || [];
-          const subs = subscriptionsResult?.data || [];
-          const riskEvents = riskEventsResult?.data || [];
-          const activeSubscriptions = subs.filter(s => s?.status === 'active').length;
-          const totalRevenue = subs
-            .filter(s => s?.status === 'active' || s?.status === 'completed')
-            .reduce((sum, s) => sum + (Number(s?.amount) || 1200), 0);
+          const { data: profiles, error: pErr } = await (await table('profiles')).select('*');
+          const { data: workspaces, error: wErr } = await (await table('workspaces')).select('*');
+          const { data: riskEvents, error: rErr } = await (await table('risk_events')).select('id').limit(500);
+
+          const safeProfiles = pErr ? [] : (profiles || []);
+          const safeWorkspaces = wErr ? [] : (workspaces || []);
+          const safeRiskEvents = rErr ? [] : (riskEvents || []);
+
+          const activeSubscriptions = safeWorkspaces.filter(w => w?.plan_name === 'Growth' || w?.plan_name === 'Enterprise').length;
+          const totalRevenue = safeWorkspaces
+            .filter(w => w?.plan_name === 'Growth' || w?.plan_name === 'Enterprise')
+            .reduce((sum, w) => sum + (w?.plan_name === 'Growth' ? 1200 : 5000), 0);
+
           return send(res, 200, {
-            totalUsers: profiles.length,
+            totalUsers: safeProfiles.length,
             activeSubscriptions,
             totalRevenue,
-            riskEventsBlocked: riskEvents.length,
-            recentSignups: profiles.slice(0, 10),
+            riskEventsBlocked: safeRiskEvents.length,
+            recentSignups: safeProfiles.slice(0, 10),
           });
         } catch (err) {
           console.error('[admin/metrics] error:', err);
-          return send(res, 200, {
-            totalUsers: 0,
-            activeSubscriptions: 0,
-            totalRevenue: 0,
-            riskEventsBlocked: 0,
-            recentSignups: [],
-          });
+          return send(res, 500, { message: err.message });
         }
       }
 
       if (url.pathname === '/api/admin/users' && req.method === 'GET') {
         try {
-          const { data, error: usersError } = await (await table('profiles')).select('*');
-          if (usersError) console.warn('[admin/users] warning:', usersError.message);
-          return send(res, 200, data || []);
+          const { data: profiles, error: usersError } = await (await table('profiles')).select('*');
+          if (usersError) throw new Error(usersError.message);
+
+          const { data: workspaces, error: wsError } = await (await table('workspaces')).select('*');
+          const { data: billings, error: billError } = await (await table('billing_usage')).select('*');
+
+          const workspaceMap = new Map((workspaces || []).map(w => [w.owner_id, w]));
+          const billingMap = new Map((billings || []).map(b => [b.workspace_id, b]));
+
+          const enrichedProfiles = (profiles || []).map(p => {
+            const ws = workspaceMap.get(p.id);
+            const bill = ws ? billingMap.get(ws.id) : null;
+            return {
+              ...p,
+              plan_name: ws?.plan_name || bill?.plan_name || 'Starter',
+              monthly_limit: bill?.monthly_limit || 10000,
+            };
+          });
+
+          return send(res, 200, enrichedProfiles);
         } catch (err) {
           console.error('[admin/users] error:', err);
-          return send(res, 200, []);
+          return send(res, 500, { message: err.message });
         }
       }
 
@@ -1273,32 +1361,221 @@ export async function router(req, res) {
         const userId = url.pathname.split('/').pop();
         try {
           const updates = body || {};
-          const { data, error } = await (await table('profiles')).update(updates).eq('id', userId).select();
-          if (error) console.warn('[admin/users/patch] DB error:', error.message);
-          return send(res, 200, { ok: true, user: data?.[0] || { id: userId, ...updates } });
+
+          // 1. Separate profile updates from workspace/billing updates
+          const profileFields = ['account_status', 'email_verified', 'full_name', 'avatar_url', 'is_admin'];
+          const profileUpdates = {};
+          for (const key of profileFields) {
+            if (key in updates) {
+              profileUpdates[key] = updates[key];
+            }
+          }
+
+          let updatedProfile = {};
+          if (Object.keys(profileUpdates).length > 0) {
+            const { data, error } = await (await table('profiles')).update(profileUpdates).eq('id', userId).select();
+            if (error) throw new Error(`Profile update failed: ${error.message}`);
+            updatedProfile = data?.[0] || {};
+          } else {
+            const { data } = await (await table('profiles')).select('*').eq('id', userId).single();
+            updatedProfile = data || {};
+          }
+
+          // 2. Separate plan_name and monthly_limit updates
+          if ('plan_name' in updates || 'monthly_limit' in updates) {
+            // Find workspace
+            let { data: ws, error: wsError } = await (await table('workspaces')).select('*').eq('owner_id', userId).single();
+            if (wsError && wsError.code !== 'PGRST116') { // PGRST116 is single() not found
+              throw new Error(`Workspace query failed: ${wsError.message}`);
+            }
+
+            if (!ws) {
+              // Create workspace if it doesn't exist
+              const newWs = {
+                id: id('ws'),
+                name: `${updatedProfile.full_name || 'User'}'s Workspace`,
+                owner_id: userId,
+                plan_name: updates.plan_name || 'Starter',
+                billing_status: 'active',
+              };
+              const { data: createdWs, error: createWsError } = await (await table('workspaces')).insert([newWs]).select();
+              if (createWsError) throw new Error(`Workspace creation failed: ${createWsError.message}`);
+              ws = createdWs?.[0];
+            } else if ('plan_name' in updates) {
+              // Update workspace plan_name
+              const { data: updatedWs, error: updateWsError } = await (await table('workspaces')).update({ plan_name: updates.plan_name }).eq('id', ws.id).select();
+              if (updateWsError) throw new Error(`Workspace update failed: ${updateWsError.message}`);
+              ws = updatedWs?.[0];
+            }
+
+            if (ws) {
+              // Find billing usage
+              let { data: bill, error: billError } = await (await table('billing_usage')).select('*').eq('workspace_id', ws.id).single();
+              if (billError && billError.code !== 'PGRST116') {
+                throw new Error(`Billing query failed: ${billError.message}`);
+              }
+
+              const billingUpdates = {};
+              if ('plan_name' in updates) billingUpdates.plan_name = updates.plan_name;
+              if ('monthly_limit' in updates) billingUpdates.monthly_limit = updates.monthly_limit;
+
+              if (!bill) {
+                const newBill = {
+                  id: id('bill'),
+                  workspace_id: ws.id,
+                  plan_name: updates.plan_name || 'Starter',
+                  checks_used: 0,
+                  monthly_limit: updates.monthly_limit || 10000,
+                  billing_period_start: firstDayOfMonth(),
+                  billing_period_end: lastDayOfMonth(),
+                };
+                const { error: createBillError } = await (await table('billing_usage')).insert([newBill]);
+                if (createBillError) throw new Error(`Billing creation failed: ${createBillError.message}`);
+              } else {
+                const { error: updateBillError } = await (await table('billing_usage')).update(billingUpdates).eq('id', bill.id);
+                if (updateBillError) throw new Error(`Billing update failed: ${updateBillError.message}`);
+              }
+            }
+          }
+
+          // 3. Return enriched updated user
+          const { data: finalProfile } = await (await table('profiles')).select('*').eq('id', userId).single();
+          const { data: finalWs } = await (await table('workspaces')).select('*').eq('owner_id', userId).single();
+          const { data: finalBill } = finalWs ? await (await table('billing_usage')).select('*').eq('workspace_id', finalWs.id).single() : { data: null };
+
+          const enrichedUser = {
+            ...(finalProfile || updatedProfile),
+            plan_name: finalWs?.plan_name || finalBill?.plan_name || 'Starter',
+            monthly_limit: finalBill?.monthly_limit || 10000,
+          };
+
+          console.log('[admin/users/patch] Success persisted user ID:', userId);
+          return send(res, 200, { ok: true, user: enrichedUser });
         } catch (err) {
-          return send(res, 200, { ok: true, user: { id: userId, ...body } });
+          console.error('[admin/users/patch] Error:', err.message);
+          return send(res, 400, { message: err.message });
         }
       }
 
       if (url.pathname.startsWith('/api/admin/users/') && req.method === 'DELETE') {
         const userId = url.pathname.split('/').pop();
         try {
-          await (await table('profiles')).delete().eq('id', userId);
+          // Delete workspace-related resources first to satisfy constraints
+          const { data: ws } = await (await table('workspaces')).select('id').eq('owner_id', userId);
+          if (ws && ws.length > 0) {
+            for (const w of ws) {
+              await (await table('billing_usage')).delete().eq('workspace_id', w.id);
+              await (await table('projects')).delete().eq('workspace_id', w.id);
+            }
+            const { error: deleteWsErr } = await (await table('workspaces')).delete().eq('owner_id', userId);
+            if (deleteWsErr) throw new Error(`Workspace deletion failed: ${deleteWsErr.message}`);
+          }
+
+          const { error: deleteProfileErr } = await (await table('profiles')).delete().eq('id', userId);
+          if (deleteProfileErr) throw new Error(`Profile deletion failed: ${deleteProfileErr.message}`);
+
+          console.log('[admin/users/delete] Success deleted user ID:', userId);
           return send(res, 200, { ok: true, deletedId: userId });
         } catch (err) {
-          return send(res, 200, { ok: true, deletedId: userId });
+          console.error('[admin/users/delete] Error:', err.message);
+          return send(res, 400, { message: err.message });
         }
       }
 
       if (url.pathname === '/api/admin/subscriptions') {
         try {
-          const { data, error: subsError } = await (await table('subscriptions')).select('*');
-          if (subsError) console.warn('[admin/subscriptions] warning:', subsError.message);
-          return send(res, 200, data || []);
+          const { data: workspaces, error: wsError } = await (await table('workspaces')).select('*');
+          if (wsError) throw new Error(wsError.message);
+
+          const { data: profiles, error: pError } = await (await table('profiles')).select('*');
+          if (pError) throw new Error(pError.message);
+
+          const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+          const activeWorkspaces = (workspaces || []).filter(w => w.plan_name === 'Growth' || w.plan_name === 'Enterprise');
+          
+          const virtualSubs = activeWorkspaces.map((w) => {
+            const owner = profileMap.get(w.owner_id);
+            return {
+              id: w.id,
+              user_name: owner?.full_name || owner?.email?.split('@')[0] || 'User',
+              user_email: owner?.email || 'user@example.com',
+              plan_name: w.plan_name,
+              amount: w.plan_name === 'Growth' ? 1200 : 5000,
+              status: 'active',
+              payment_id: `pay_${w.id.slice(4, 16)}`,
+              created_at: w.created_at || new Date().toISOString(),
+            };
+          });
+
+          return send(res, 200, virtualSubs);
         } catch (err) {
           console.error('[admin/subscriptions] error:', err);
-          return send(res, 200, []);
+          return send(res, 500, { message: err.message });
+        }
+      }
+
+      if (url.pathname === '/api/admin/signups-review') {
+        try {
+          const { data, error } = await (await table('internal_signup_attempts')).select('*').order('created_at', { ascending: false }).limit(200);
+          if (error) throw new Error(error.message);
+          return send(res, 200, (data || []).map(internalSignupAttemptResponse));
+        } catch (err) {
+          console.error('[admin/signups-review] error:', err);
+          return send(res, 500, { message: err.message });
+        }
+      }
+
+      if (url.pathname.startsWith('/api/admin/signups-review/') && req.method === 'POST') {
+        try {
+          const parts = url.pathname.split('/');
+          const eventId = parts[4];
+          const command = parts[5];
+          const action = command === 'approve' ? 'ALLOW' : 'BLOCK';
+          
+          const { data, error } = await (await table('internal_signup_attempts')).update({ action }).eq('id', eventId).select();
+          if (error) throw new Error(error.message);
+          if (!data?.length) throw apiError('NOT_FOUND', 'Signup attempt not found', 404);
+          
+          return send(res, 200, internalSignupAttemptResponse(data[0]));
+        } catch (err) {
+          console.error('[admin/signups-review/post] error:', err);
+          return send(res, 500, { message: err.message });
+        }
+      }
+
+      if (url.pathname === '/api/admin/settings' && req.method === 'GET') {
+        try {
+          const settings = await getGlobalSettings();
+          return send(res, 200, settings);
+        } catch (err) {
+          console.error('[admin/settings/get] error:', err);
+          return send(res, 500, { message: err.message });
+        }
+      }
+
+      if (url.pathname === '/api/admin/settings' && req.method === 'PATCH') {
+        try {
+          const { protection_mode, default_limit, maintenance_mode, announcement } = body;
+          const updates = {};
+          if (protection_mode !== undefined) updates.protection_mode = protection_mode;
+          if (default_limit !== undefined) updates.default_limit = Number(default_limit);
+          if (maintenance_mode !== undefined) updates.maintenance_mode = Boolean(maintenance_mode);
+          if (announcement !== undefined) updates.announcement = announcement;
+          updates.updated_at = new Date().toISOString();
+
+          const { data, error } = await (await table('global_settings')).update(updates).eq('id', 'default').select();
+          if (error) throw new Error(error.message);
+          if (!data?.length) throw apiError('NOT_FOUND', 'Settings default row not found', 404);
+
+          // Invalidate cached settings
+          cachedGlobalSettings = data[0];
+          settingsCacheExpiresAt = Date.now() + 10000;
+
+          return send(res, 200, data[0]);
+        } catch (err) {
+          console.error('[admin/settings/patch] error:', err);
+          return send(res, 500, { message: err.message });
         }
       }
 
@@ -1382,31 +1659,25 @@ export async function router(req, res) {
       return send(res, 201, data[0]);
     }
     if (url.pathname === '/api/review-queue') {
-      const [riskEvents, internalAttempts] = await Promise.all([
-        (await table('risk_events')).select('*').eq('project_id', project.id).order('created_at', { ascending: false }).limit(200),
-        (await table('internal_signup_attempts')).select('*').order('created_at', { ascending: false }).limit(200),
-      ]);
-      if (riskEvents.error) throw new Error(riskEvents.error.message);
-      if (internalAttempts.error) throw new Error(internalAttempts.error.message);
-      const reviewItems = [
-        ...(riskEvents.data || []).filter(isReviewQueueCandidate).map(riskEventResponse),
-        ...(internalAttempts.data || []).map(internalSignupAttemptResponse),
-      ].sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+      const { data: riskEvents, error: riskError } = await (await table('risk_events'))
+        .select('*')
+        .eq('project_id', project.id)
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (riskError) throw new Error(riskError.message);
+      
+      const reviewItems = (riskEvents || [])
+        .filter(isReviewQueueCandidate)
+        .map(riskEventResponse)
+        .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+        
       return send(res, 200, reviewItems);
     }
     if (url.pathname.includes('/api/review-queue/') && req.method === 'POST') {
       const [, , , eventId, command] = url.pathname.split('/');
       const action = command === 'approve' ? 'ALLOW' : 'BLOCK';
-      const isInternalAttempt = eventId.startsWith('wait_') || eventId.startsWith('isa_');
-      let updated;
-      if (isInternalAttempt) {
-        const { data, error } = await (await table('internal_signup_attempts')).update({ action }).eq('id', eventId).select();
-        if (error) throw new Error(error.message);
-        if (!data?.length) throw Object.assign(new Error('Not found'), { status: 404 });
-        updated = internalSignupAttemptResponse(data[0]);
-      } else {
-        updated = await patchProjectRow('risk_events', eventId, project.id, { action });
-      }
+      const updated = await patchProjectRow('risk_events', eventId, project.id, { action });
       await (await table('audit_logs')).insert([{ id: id('aud'), workspace_id: workspace.id, project_id: project.id, user_id: user.id, action: `review_${command}`, entity_type: 'risk_event', entity_id: eventId, metadata: body }]);
       return send(res, 200, updated);
     }

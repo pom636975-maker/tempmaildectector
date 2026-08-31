@@ -18,7 +18,10 @@ export default function LoginPage() {
 
   // Forgot Password state
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [resetStep, setResetStep] = useState(1);
   const [resetEmail, setResetEmail] = useState('');
+  const [resetOtp, setResetOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
 
   // Simulating live activity for visual effect
@@ -35,13 +38,13 @@ export default function LoginPage() {
   useEffect(() => {
     try { console.debug('LoginPage useEffect', { isAuthenticated, isDashboardEnabled, user }); } catch (e) {}
     if (isAuthenticated && isDashboardEnabled) {
-      const isAdmin = user?.email?.toLowerCase() === 'pom636975@gmail.com';
+      const isAdmin = user?.is_admin === true;
       navigate(isAdmin ? '/admin' : '/dashboard', { replace: true });
       return;
     }
     if (sessionStorage.getItem('stravo_oauth_complete') === '1') {
       sessionStorage.removeItem('stravo_oauth_complete');
-      const isAdmin = user?.email?.toLowerCase() === 'pom636975@gmail.com';
+      const isAdmin = user?.is_admin === true;
       navigate(isAdmin ? '/admin' : '/dashboard', { replace: true });
     }
   }, [isAuthenticated, isDashboardEnabled, navigate, user]);
@@ -54,7 +57,7 @@ export default function LoginPage() {
     try {
       const loggedInUser = await login(email, password);
       try { console.debug('LoginPage handleSubmit loggedInUser', { loggedInUser }); } catch (e) {}
-      const isAdmin = loggedInUser?.email?.toLowerCase() === 'pom636975@gmail.com';
+      const isAdmin = loggedInUser?.is_admin === true;
       navigate(isAdmin ? '/admin' : '/dashboard');
     } catch (err) {
       let msg = err.message || 'Login failed.';
@@ -89,11 +92,30 @@ export default function LoginPage() {
     setResetLoading(true);
     try {
       await authApi.resetPassword(resetEmail);
-      setNotice(`Reset link sent to ${resetEmail} if it exists in our system.`);
-      setIsForgotPassword(false);
-      setResetEmail('');
+      setNotice(`Reset code sent to ${resetEmail} if it exists in our system.`);
+      setResetStep(2);
     } catch (err) {
       setError(err.message || 'Failed to send reset link.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    setNotice('');
+    setResetLoading(true);
+    try {
+      await authApi.updatePassword(resetEmail, resetOtp, newPassword);
+      setNotice('Password updated successfully! You can now log in.');
+      setIsForgotPassword(false);
+      setResetStep(1);
+      setResetEmail('');
+      setResetOtp('');
+      setNewPassword('');
+    } catch (err) {
+      setError(err.message || 'Failed to update password.');
     } finally {
       setResetLoading(false);
     }
@@ -268,33 +290,70 @@ export default function LoginPage() {
           {/* Forms */}
           {isForgotPassword ? (
             // Forgot Password Form
-            <form onSubmit={handleForgotPassword} className="space-y-6">
+            <form onSubmit={resetStep === 1 ? handleForgotPassword : handleUpdatePassword} className="space-y-6">
               <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="font-label-caps text-label-caps text-login-on-surface-variant" htmlFor="resetEmail">EMAIL ADDRESS</label>
-                  <input
-                    className="w-full h-12 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary focus:border-login-primary transition-all outline-none text-body-md placeholder:text-login-outline/50 shadow-sm"
-                    id="resetEmail"
-                    name="resetEmail"
-                    placeholder="name@company.com"
-                    required
-                    type="email"
-                    value={resetEmail}
-                    onChange={e => setResetEmail(e.target.value)}
-                  />
-                </div>
+                {resetStep === 1 ? (
+                  <div className="space-y-1.5">
+                    <label className="font-label-caps text-label-caps text-login-on-surface-variant" htmlFor="resetEmail">EMAIL ADDRESS</label>
+                    <input
+                      className="w-full h-12 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary focus:border-login-primary transition-all outline-none text-body-md placeholder:text-login-outline/50 shadow-sm"
+                      id="resetEmail"
+                      name="resetEmail"
+                      placeholder="name@company.com"
+                      required
+                      type="email"
+                      value={resetEmail}
+                      onChange={e => setResetEmail(e.target.value)}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="font-label-caps text-label-caps text-login-on-surface-variant" htmlFor="resetOtp">6-DIGIT RESET CODE</label>
+                      <input
+                        className="w-full h-12 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary focus:border-login-primary transition-all outline-none text-body-md placeholder:text-login-outline/50 shadow-sm font-mono tracking-widest"
+                        id="resetOtp"
+                        name="resetOtp"
+                        placeholder="123456"
+                        required
+                        type="text"
+                        maxLength={6}
+                        value={resetOtp}
+                        onChange={e => setResetOtp(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="font-label-caps text-label-caps text-login-on-surface-variant" htmlFor="newPassword">NEW PASSWORD</label>
+                      <input
+                        className="w-full h-12 bg-white border border-login-outline-variant px-4 rounded-lg focus:ring-2 focus:ring-login-primary focus:border-login-primary transition-all outline-none text-body-md placeholder:text-login-outline/50 shadow-sm"
+                        id="newPassword"
+                        name="newPassword"
+                        placeholder="••••••••"
+                        required
+                        type="password"
+                        minLength={8}
+                        maxLength={72}
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
               <button
                 className="w-full h-12 bg-login-primary text-white font-headline-md text-body-lg rounded-lg shadow-lg shadow-login-primary/20 hover:bg-login-primary-container active:scale-[0.98] transition-all flex items-center justify-center inner-glow cursor-pointer disabled:opacity-50"
                 type="submit"
                 disabled={resetLoading}
               >
-                {resetLoading ? 'Sending...' : 'Send Reset Link'}
+                {resetLoading ? 'Please wait...' : (resetStep === 1 ? 'Send Reset Code' : 'Update Password')}
               </button>
               <div className="text-center pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsForgotPassword(false)}
+                  onClick={() => {
+                    setIsForgotPassword(false);
+                    setResetStep(1);
+                  }}
                   className="text-sm font-bold text-login-primary hover:underline"
                 >
                   Back to Sign In

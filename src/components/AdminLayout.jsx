@@ -8,6 +8,7 @@ const ADMIN_NAV = [
   { to: '/admin/subscriptions', label: 'Subscriptions',  icon: 'payments' },
   { to: '/admin/settings',     label: 'System Controls', icon: 'tune' },
   { to: '/admin/global-rules', label: 'Global Rules',   icon: 'gavel' },
+  { to: '/admin/review',       label: 'Signups Review',  icon: 'how_to_reg' },
 ];
 
 const ADMIN_BOTTOM = [

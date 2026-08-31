@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { createAdminClient } from '@insforge/sdk';
 
 const INSFORGE_URL = process.env.INSFORGE_URL || 'https://hp7mm277.us-east.insforge.app';
-const INSFORGE_API_KEY = process.env.INSFORGE_API_KEY;
+const INSFORGE_API_KEY = process.env.INSFORGE_API_KEY || '';
 
 const sources = [
   'https://disposable.github.io/disposable-email-domains/domains_mx.txt',

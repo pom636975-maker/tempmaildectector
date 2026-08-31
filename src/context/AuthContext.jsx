@@ -44,6 +44,8 @@ export const AuthProvider = ({ children }) => {
         }
 
         const { user: currentUser } = await authApi.me();
+        console.log('[AuthContext DEBUG] /api/auth/me response:', { currentUser });
+        console.log('[AuthContext DEBUG] currentUser.is_admin:', currentUser?.is_admin);
         setUser(currentUser);
         // debug: log current user/session info to help diagnose redirect issues
         try { console.debug('AuthContext.syncSession setUser', { currentUser, token }); } catch (e) {}
