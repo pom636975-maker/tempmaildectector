@@ -6,10 +6,20 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      // Forward all /api requests to the Node backend in dev mode
       '/api': {
         target: 'http://localhost:8787',
         changeOrigin: true,
+      },
+    },
+  },
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-charts': ['recharts'],
+        },
       },
     },
   },
