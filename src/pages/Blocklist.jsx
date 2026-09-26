@@ -213,7 +213,8 @@ export default function Blocklist() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           )}
