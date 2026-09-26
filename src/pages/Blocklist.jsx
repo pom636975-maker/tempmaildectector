@@ -13,11 +13,19 @@ export default function Blocklist() {
 
   const fetchData = () => {
     setLoading(true);
-    Promise.all([getBlocklist(), getAllowlist()]).then(([blockListData, allowListData]) => {
-      setEntries(blockListData);
-      setAllowed(allowListData);
-      setLoading(false);
-    });
+    Promise.all([getBlocklist(), getAllowlist()])
+      .then(([blockListData, allowListData]) => {
+        setEntries(Array.isArray(blockListData) ? blockListData : []);
+        setAllowed(Array.isArray(allowListData) ? allowListData : []);
+      })
+      .catch(err => {
+        console.error('Failed to load blocklist/allowlist:', err);
+        setEntries([]);
+        setAllowed([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   useEffect(() => {
@@ -181,18 +189,24 @@ export default function Blocklist() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle">
-                {list.map(e => (
-                  <tr key={e.id} className="hover:bg-surface-container-lowest transition-colors">
-                    <td className="px-8 py-4">
-                      <span className="px-2 py-1 bg-surface-container rounded-md text-[10px] font-bold text-on-surface-variant">{TYPE_BADGE[e.type] || e.type}</span>
-                    </td>
-                    <td className="px-8 py-4 text-code-sm font-bold text-on-surface font-mono">{e.value}</td>
-                    <td className="px-8 py-4 text-code-sm text-on-surface-variant">{e.reason}</td>
-                    <td className="px-8 py-4 text-code-sm text-on-surface-variant">
-                      {new Date(e.addedAt).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}
-                    </td>
-                    <td className="px-8 py-4 text-code-sm font-bold">{e.hits}</td>
-                    <td className="px-8 py-4">
+                {list.map(e => {
+                  const entryType = e.type || (e.domain ? 'email_domain' : (e.ip_address ? 'ip' : 'entry'));
+                  const entryValue = e.value || e.domain || e.ip_address || '—';
+                  const dateStr = e.addedAt || e.created_at;
+                  return (
+                    <tr key={e.id} className="hover:bg-surface-container-lowest transition-colors">
+                      <td className="px-8 py-4">
+                        <span className="px-2 py-1 bg-surface-container rounded-md text-[10px] font-bold text-on-surface-variant">
+                          {TYPE_BADGE[entryType] || entryType}
+                        </span>
+                      </td>
+                      <td className="px-8 py-4 text-code-sm font-bold text-on-surface font-mono">{entryValue}</td>
+                      <td className="px-8 py-4 text-code-sm text-on-surface-variant">{e.reason || 'Manual entry'}</td>
+                      <td className="px-8 py-4 text-code-sm text-on-surface-variant">
+                        {dateStr ? new Date(dateStr).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : 'Recently'}
+                      </td>
+                      <td className="px-8 py-4 text-code-sm font-bold">{e.hits ?? 0}</td>
+                      <td className="px-8 py-4">
                       <button onClick={() => remove(e.id)}
                         className="px-3 py-1.5 rounded-lg font-label-caps text-[10px] font-bold border border-status-risk/20 text-status-risk bg-status-risk/5 hover:bg-status-risk/10 transition-colors">
                         Delete

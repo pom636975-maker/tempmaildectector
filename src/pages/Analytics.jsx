@@ -6,7 +6,21 @@ export default function Analytics() {
   const [analyticsData, setAnalyticsData] = useState({ weekly: [], blockReasons: [], qualityTrend: [] });
   const [summary, setSummary] = useState(null);
   useEffect(() => {
-    getAnalytics().then(setAnalyticsData).catch(() => {});
+    getAnalytics()
+      .then(data => {
+        if (!data) return;
+        const totalBlockReasons = (data.blockReasons || []).reduce((sum, item) => sum + (item.count || 0), 0);
+        const computedBlockReasons = (data.blockReasons || []).map(item => ({
+          ...item,
+          pct: item.pct !== undefined ? item.pct : (totalBlockReasons > 0 ? Math.round((item.count / totalBlockReasons) * 100) : 0),
+        }));
+        setAnalyticsData({
+          weekly: data.weekly || [],
+          blockReasons: computedBlockReasons,
+          qualityTrend: data.qualityTrend || [],
+        });
+      })
+      .catch(() => {});
     getDashboardMetrics().then(setSummary).catch(() => {});
   }, []);
   const metrics = [

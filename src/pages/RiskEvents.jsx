@@ -20,9 +20,14 @@ export default function RiskEvents() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = events.filter(e => {
+  const filtered = (events || []).filter(e => {
     if (filter.decision !== 'ALL' && e.decision !== filter.decision) return false;
-    if (filter.search && !e.email.toLowerCase().includes(filter.search.toLowerCase()) && !e.ip.includes(filter.search)) return false;
+    if (filter.search) {
+      const q = filter.search.toLowerCase();
+      const emailMatch = e.email?.toLowerCase().includes(q);
+      const ipMatch = e.ip?.includes(filter.search);
+      if (!emailMatch && !ipMatch) return false;
+    }
     return true;
   });
 
@@ -38,7 +43,7 @@ export default function RiskEvents() {
   const todayBlocked = events.filter(e => e.decision === 'BLOCK').length;
   const todayReview  = events.filter(e => e.decision === 'REVIEW').length;
   const todayAllow   = events.filter(e => e.decision === 'ALLOW').length;
-  const avgScore     = events.length ? Math.round(events.reduce((s, e) => s + e.riskScore, 0) / events.length) : 0;
+  const avgScore     = events.length ? Math.round(events.reduce((s, e) => s + (e.riskScore ?? 0), 0) / events.length) : 0;
 
   return (
     <div>

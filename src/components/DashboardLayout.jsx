@@ -174,7 +174,7 @@ export default function DashboardLayout() {
           <div className="h-8 w-[1px] bg-border-subtle mx-2" />
           <button className="flex items-center gap-3 py-1.5 px-3 hover:bg-surface-container transition-all rounded-full group">
             <div className="w-8 h-8 rounded-full bg-secondary/20 border border-border-subtle flex items-center justify-center text-secondary font-bold text-sm">
-              {user?.name?.[0] || 'F'}
+              {(user?.full_name || user?.name || user?.email || 'U')[0].toUpperCase()}
             </div>
             <span className="font-label-caps text-label-caps hidden lg:block">Profile Settings</span>
           </button>

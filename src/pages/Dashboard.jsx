@@ -65,13 +65,18 @@ export default function Dashboard() {
   const strokeDashoffset = circumference * (1 - qualityScore / 100);
 
   const displayEvents = events.length > 0 ? events.map((e, i) => ({
+    id: e.id || i,
     email: e.email,
     score: e.riskScore ?? e.risk_score ?? 0,
     reasons: e.reasons?.slice(0, 2) || [],
     decision: e.decision || e.action || 'ALLOW',
-    area: e.protectedArea || e.protected_areas?.join(' + ') || 'AI Credits + CRM',
+    area: e.protect?.length ? e.protect.join(' + ') : (e.protectedArea || e.protected_areas?.join(' + ') || 'AI Credits + CRM'),
     time: new Date(e.timestamp || e.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   })) : [];
+
+  const formattedTotalProtected = typeof metrics.totalProtected === 'string' && metrics.totalProtected.startsWith('$')
+    ? metrics.totalProtected
+    : `$${metrics.totalProtected ?? 0}`;
 
   return (
     <div className="animate-count">
@@ -117,7 +122,7 @@ export default function Dashboard() {
               </div>
               <h2 className="font-headline-md text-headline-md mb-2">Your signup quality is stable today.</h2>
               <p className="text-on-surface-variant text-body-lg mb-8 max-w-md">
-                Our intelligence blocked <strong>{metrics.todayBlocked || 47}</strong> risky signups in the last 24 hours, preventing potential credit exhaustion.
+                Our intelligence blocked <strong>{metrics.todayBlocked ?? 0}</strong> risky signups in the last 24 hours, preventing potential credit exhaustion.
               </p>
             </div>
             <button
@@ -169,7 +174,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-start mb-6">
             <div>
               <p className="font-label-caps text-label-caps text-on-surface-variant mb-1">TOTAL PROTECTED</p>
-              <h3 className="font-display-lg text-[40px] text-primary">${metrics.totalProtected || 928}</h3>
+              <h3 className="font-display-lg text-[40px] text-primary">{formattedTotalProtected}</h3>
             </div>
             <div className="p-2 bg-secondary/10 rounded-lg">
               <span className="material-symbols-outlined text-secondary">account_balance_wallet</span>

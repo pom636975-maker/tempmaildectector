@@ -590,6 +590,10 @@ async function scoreSignup(input, internal = false) {
 }
 
 async function readJson(req) {
+  // Vercel serverless pre-parses the body; stream is already drained
+  if (req.body !== undefined && req.body !== null) {
+    return typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+  }
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
@@ -651,14 +655,10 @@ function sendError(res, error) {
 async function requireUser(req) {
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   if (!token) throw apiError('AUTH_REQUIRED', 'Authentication required', 401);
-  if (token === 'mock-token-123' && (INSFORGE_API_KEY === 'missing' || !INSFORGE_API_KEY)) {
-    const mockUser = { id: 'test-user-id', email: 'test@example.com', name: 'Test User', emailVerified: true, account_status: 'active' };
-    return upsertProfile(mockUser);
-  }
   const client = createClient({ baseUrl: INSFORGE_URL, anonKey: INSFORGE_ANON_KEY });
   client.setAccessToken(token);
   const { data, error } = await client.auth.getCurrentUser();
-  const currentUser = authUserFrom(data) || authUserFromToken(token);
+  const currentUser = authUserFrom(data);
   if (!currentUser) {
     console.warn('Unable to resolve authenticated user', { sdkError: error?.message || error?.error || '' });
     throw apiError('AUTH_REQUIRED', 'Authentication required', 401);
@@ -1146,6 +1146,10 @@ export async function router(req, res) {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/auth/signup') {
+      const settings = await getGlobalSettings();
+      if (settings?.maintenance_mode) {
+        throw apiError('MAINTENANCE_MODE', 'Registration is paused during system maintenance. Please try again later.', 503);
+      }
       const { email, password, fullName } = body;
       const result = await scoreSignup({ email, ip: getClientIp(req), userAgent: req.headers['user-agent'], deviceId: body.deviceId }, true);
       const parsed = parseEmail(email);
@@ -1177,6 +1181,10 @@ export async function router(req, res) {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/auth/verify-email') {
+      const settings = await getGlobalSettings();
+      if (settings?.maintenance_mode) {
+        throw apiError('MAINTENANCE_MODE', 'Email verification is paused during system maintenance. Please try again later.', 503);
+      }
       const { email, otp } = body;
       const { data, error } = await publicClient.auth.verifyEmail({ email, otp });
       if (error) throw Object.assign(new Error(error.message), { status: error.statusCode || 400 });
@@ -1198,15 +1206,12 @@ export async function router(req, res) {
       if (password.length < 8 || password.length > 72) {
         throw Object.assign(new Error('Password must be between 8 and 72 characters.'), { status: 400 });
       }
-      let data, error;
       if (INSFORGE_API_KEY === 'missing' || !INSFORGE_API_KEY) {
-        data = { user: { id: 'test-user-id', email: body.email, name: 'Test User', emailVerified: true }, accessToken: 'mock-token-123' };
-        error = null;
-      } else {
-        const result = await publicClient.auth.signInWithPassword(body);
-        data = result.data;
-        error = result.error;
+        throw apiError('CONFIG_ERROR', 'Authentication service is not properly configured.', 500);
       }
+      const result = await publicClient.auth.signInWithPassword(body);
+      const data = result.data;
+      const error = result.error;
       if (error) throw Object.assign(new Error(error.message), { status: error.statusCode || 401 });
       const signedInUser = authUserFrom(data);
       if (!signedInUser) throw Object.assign(new Error('Could not read signed-in user from InsForge.'), { status: 502 });
@@ -1224,7 +1229,7 @@ export async function router(req, res) {
 
     if (url.pathname === '/api/auth/logout') return send(res, 200, { ok: true });
     if (url.pathname === '/api/auth/me') return send(res, 200, { user: await requireUser(req) });
-    if (url.pathname === '/api/auth/reset-password') {
+    if (req.method === 'POST' && url.pathname === '/api/auth/reset-password') {
       await publicClient.auth.sendResetPasswordEmail({ email: body.email, redirectTo: `${req.headers.origin || 'http://localhost:5173'}/login` }).catch(() => {});
       return send(res, 200, { ok: true });
     }

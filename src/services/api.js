@@ -24,7 +24,7 @@ async function request(path, options = {}, attempt = 0) {
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    if (res.status === 401) {
+    if (res.status === 401 && path !== '/api/auth/login') {
       localStorage.removeItem('stravo_access_token');
       localStorage.removeItem('stravo_user');
       window.dispatchEvent(new CustomEvent('stravo:auth-expired'));

@@ -261,7 +261,7 @@ export default function AdminUsers() {
 
       {/* ── Deep User Control Modal ── */}
       {selectedUser && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-gray-200 max-w-lg w-full p-6 shadow-2xl space-y-6" style={{ animation: 'adminSlideUp 0.3s ease-out both' }}>
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-gray-100 pb-4">

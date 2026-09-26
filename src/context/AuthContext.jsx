@@ -52,10 +52,19 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('stravo_user', JSON.stringify(currentUser));
         if (completedOAuth) sessionStorage.setItem('stravo_oauth_complete', '1');
       } catch (err) {
-        localStorage.removeItem('stravo_access_token');
-        localStorage.removeItem('stravo_user');
+        // Only clear stored tokens if the server explicitly tells us the token is invalid/expired (401)
+        if (err.status === 401) {
+          localStorage.removeItem('stravo_access_token');
+          localStorage.removeItem('stravo_user');
+          setUser(null);
+        } else {
+          // On network error or maintenance mode (503), keep cached user if available
+          const cachedUser = localStorage.getItem('stravo_user');
+          if (cachedUser) {
+            try { setUser(JSON.parse(cachedUser)); } catch (e) {}
+          }
+        }
         setAuthError(err.message || 'Authentication failed. Please sign in again.');
-        setUser(null);
       } finally {
         setLoading(false);
       }

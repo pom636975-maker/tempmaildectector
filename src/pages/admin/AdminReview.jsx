@@ -8,16 +8,26 @@ export default function AdminReview() {
 
   const fetchQueue = () => {
     setLoading(true);
-    getAdminReviewSignups().then(data => {
-      setQueue(data);
-      const pendingItems = data.filter(q => q.status === 'pending');
-      if (pendingItems.length > 0) {
-        setSelected(pendingItems[0]);
-      } else if (data.length > 0) {
-        setSelected(data[0]);
-      }
-      setLoading(false);
-    });
+    getAdminReviewSignups()
+      .then(data => {
+        const list = Array.isArray(data) ? data : [];
+        setQueue(list);
+        const pendingItems = list.filter(q => q.status === 'pending');
+        if (pendingItems.length > 0) {
+          setSelected(pendingItems[0]);
+        } else if (list.length > 0) {
+          setSelected(list[0]);
+        } else {
+          setSelected(null);
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching admin review queue:', err);
+        setQueue([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   useEffect(() => {
@@ -40,9 +50,10 @@ export default function AdminReview() {
     }
   };
 
-  const pending = queue.filter(q => q.status === 'pending');
-  const approved = queue.filter(q => q.status === 'approved');
-  const blocked = queue.filter(q => q.status === 'blocked');
+  const safeQueue = Array.isArray(queue) ? queue : [];
+  const pending = safeQueue.filter(q => q.status === 'pending');
+  const approved = safeQueue.filter(q => q.status === 'approved');
+  const blocked = safeQueue.filter(q => q.status === 'blocked');
 
   const scoreColor = (s) => s >= 80 ? 'text-status-risk' : s >= 40 ? 'text-status-warning' : 'text-status-protected';
   const scoreBar = (s) => s >= 80 ? 'bg-status-risk' : s >= 40 ? 'bg-status-warning' : 'bg-status-protected';
@@ -95,7 +106,7 @@ export default function AdminReview() {
                     <span className={`font-bold text-code-sm ${scoreColor(item.riskScore)}`}>{item.riskScore}</span>
                   </div>
                   <div className="flex gap-1 flex-wrap mt-2">
-                    {item.reasons.map(r => (
+                    {(item.reasons || []).map(r => (
                       <span key={r} className="text-[10px] bg-surface-container px-2 py-0.5 rounded font-bold text-on-surface-variant">{r.replace(/_/g, ' ')}</span>
                     ))}
                   </div>
@@ -122,7 +133,7 @@ export default function AdminReview() {
                 <div className="p-8 space-y-6">
                   <div>
                     <div className="flex justify-between mb-2 text-[10px] font-label-caps text-on-surface-variant">
-                      <span>RISK SCORE</span><span>{selected.riskScore}/100</span>
+                       <span>RISK SCORE</span><span>{selected.riskScore}/100</span>
                     </div>
                     <div className="h-2 w-full bg-surface-container rounded-full overflow-hidden">
                       <div className={`${scoreBar(selected.riskScore)} h-full`} style={{ width: `${selected.riskScore}%` }} />
@@ -131,22 +142,22 @@ export default function AdminReview() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <p className="font-label-caps text-[10px] text-on-surface-variant uppercase">IP Address</p>
-                      <p className="text-code-sm bg-surface-container-low px-4 py-3 rounded-lg border border-border-subtle font-mono">{selected.ip}</p>
+                      <p className="text-code-sm bg-surface-container-low px-4 py-3 rounded-lg border border-border-subtle font-mono">{selected.ip || 'Unknown'}</p>
                     </div>
                     <div className="space-y-1.5">
                       <p className="font-label-caps text-[10px] text-on-surface-variant uppercase">Submitted</p>
                       <p className="text-code-sm bg-surface-container-low px-4 py-3 rounded-lg border border-border-subtle">
-                        {new Date(selected.submittedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {selected.submittedAt ? new Date(selected.submittedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recently'}
                       </p>
                     </div>
                   </div>
                   <div>
                     <p className="font-label-caps text-[10px] text-on-surface-variant mb-3 uppercase">Risk Signals</p>
                     <div className="flex flex-wrap gap-2">
-                      {selected.reasons.map(r => (
+                      {(selected.reasons || []).map(r => (
                         <span key={r} className="px-3 py-1.5 bg-status-warning/10 text-status-warning border border-status-warning/20 rounded-lg text-[11px] font-bold capitalize">{r.replace(/_/g, ' ')}</span>
                       ))}
-                      {selected.reasons.length === 0 && <span className="text-code-sm text-on-surface-variant">No signals — clean profile</span>}
+                      {(!selected.reasons || selected.reasons.length === 0) && <span className="text-code-sm text-on-surface-variant">No signals — clean profile</span>}
                     </div>
                   </div>
                   {selected.status === 'pending' ? (

@@ -61,7 +61,7 @@ export default function LoginPage() {
       navigate(isAdmin ? '/admin' : '/dashboard');
     } catch (err) {
       let msg = err.message || 'Login failed.';
-      if (msg.includes('Invalid credentials')) {
+      if (/invalid.*credential/i.test(msg)) {
         msg = 'Invalid email or password.';
       }
       setError(msg);
@@ -277,7 +277,7 @@ export default function LoginPage() {
           </div>
 
           {(error || authError) && (
-            <div className="bg-login-error-container/30 border border-login-login-error/15 rounded-lg p-3 text-sm text-login-error">
+            <div className="bg-login-error-container/30 border border-login-error/15 rounded-lg p-3 text-sm text-login-error">
               {error || authError}
             </div>
           )}

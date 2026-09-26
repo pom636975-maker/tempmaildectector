@@ -53,9 +53,8 @@ export default async function(req) {
         console.log("[payu-payment] Proceeding anyway for test mode...");
       }
 
-      // Use hardcoded fallback values to ensure DB insert works
-      const BASE_URL = Deno.env.get("INSFORGE_BASE_URL") || "https://46d5hap4.us-east.insforge.app";
-      const ANON_KEY = Deno.env.get("INSFORGE_ANON_KEY") || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3OC0xMjM0LTU2NzgtOTBhYi1jZGVmMTIzNDU2NzgiLCJlbWFpbCI6ImFub25AaW5zZm9yZ2UuY29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1NDg3MTR9.3wOoA5d4EAHXqzwZjL8_wwxaVoULnHY34Ak91wjIlAY";
+      const BASE_URL = Deno.env.get("INSFORGE_URL") || "https://hp7mm277.us-east.insforge.app";
+      const ANON_KEY = Deno.env.get("INSFORGE_ANON_KEY") || "";
 
       console.log("[payu-payment] Creating InsForge client with baseUrl:", BASE_URL);
 

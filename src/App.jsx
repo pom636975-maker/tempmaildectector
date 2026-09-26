@@ -42,10 +42,10 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const PublicRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   if (loading) return null;
-  // If already authenticated, redirect to dashboard.
-  return !isAuthenticated ? children : <Navigate to="/dashboard" replace />;
+  if (!isAuthenticated) return children;
+  return <Navigate to={user?.is_admin ? "/admin" : "/dashboard"} replace />;
 };
 
 export default function App() {

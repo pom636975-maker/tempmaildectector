@@ -8,10 +8,17 @@ export default function Rules() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getRules().then(data => {
-      setRules(data);
-      setLoading(false);
-    });
+    getRules()
+      .then(data => {
+        setRules(Array.isArray(data) ? data : []);
+      })
+      .catch(err => {
+        console.error('Failed to load rules:', err);
+        setRules([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const toggle = async (id, currentVal) => {
@@ -125,17 +132,22 @@ export default function Rules() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-bold text-code-sm text-on-surface">{rule.name}</span>
-                    <span className="px-2 py-0.5 bg-surface-container rounded-md text-[10px] font-bold text-on-surface-variant">{rule.category}</span>
+                    <span className="px-2 py-0.5 bg-surface-container rounded-md text-[10px] font-bold text-on-surface-variant">{rule.category || rule.type || 'Rule'}</span>
                   </div>
-                  <p className="text-code-sm text-on-surface-variant truncate">{rule.description}</p>
+                  <p className="text-code-sm text-on-surface-variant truncate">{rule.description || rule.pattern || 'Risk evaluation rule'}</p>
                 </div>
 
                 {/* Risk Impact */}
                 <div className="text-right flex-shrink-0 w-20">
                   <p className="font-label-caps text-[10px] text-on-surface-variant mb-1">RISK IMPACT</p>
-                  <p className={`font-headline-sm text-lg ${rule.riskImpact > 0 ? 'text-status-risk' : 'text-status-protected'}`}>
-                    +{rule.riskImpact}
-                  </p>
+                  {(() => {
+                    const impact = rule.risk_score_impact ?? rule.riskImpact ?? 0;
+                    return (
+                      <p className={`font-headline-sm text-lg ${impact > 0 ? 'text-status-risk' : 'text-status-protected'}`}>
+                        +{impact}
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 {/* Action buttons */}

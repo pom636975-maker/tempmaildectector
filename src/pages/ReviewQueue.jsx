@@ -8,17 +8,26 @@ export default function ReviewQueue() {
 
   const fetchQueue = () => {
     setLoading(true);
-    getReviewQueue().then(data => {
-      setQueue(data);
-      // Auto-select first pending item if none selected or if previously selected item is no longer pending
-      const pendingItems = data.filter(q => q.status === 'pending');
-      if (pendingItems.length > 0) {
-        setSelected(pendingItems[0]);
-      } else if (data.length > 0) {
-        setSelected(data[0]);
-      }
-      setLoading(false);
-    });
+    getReviewQueue()
+      .then(data => {
+        const list = Array.isArray(data) ? data : [];
+        setQueue(list);
+        const pendingItems = list.filter(q => q.status === 'pending');
+        if (pendingItems.length > 0) {
+          setSelected(pendingItems[0]);
+        } else if (list.length > 0) {
+          setSelected(list[0]);
+        } else {
+          setSelected(null);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load review queue:', err);
+        setQueue([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   useEffect(() => {
@@ -103,7 +112,7 @@ export default function ReviewQueue() {
                     <span className={`font-bold text-code-sm ${scoreColor(item.riskScore)}`}>{item.riskScore}</span>
                   </div>
                   <div className="flex gap-1 flex-wrap mt-2">
-                    {item.reasons.map(r => (
+                    {(item.reasons || []).map(r => (
                       <span key={r} className="text-[10px] bg-surface-container px-2 py-0.5 rounded font-bold text-on-surface-variant">{r.replace(/_/g, ' ')}</span>
                     ))}
                   </div>
@@ -139,22 +148,22 @@ export default function ReviewQueue() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <p className="font-label-caps text-[10px] text-on-surface-variant uppercase">IP Address</p>
-                      <p className="text-code-sm bg-surface-container-low px-4 py-3 rounded-lg border border-border-subtle font-mono">{selected.ip}</p>
+                      <p className="text-code-sm bg-surface-container-low px-4 py-3 rounded-lg border border-border-subtle font-mono">{selected.ip || 'Unknown'}</p>
                     </div>
                     <div className="space-y-1.5">
                       <p className="font-label-caps text-[10px] text-on-surface-variant uppercase">Submitted</p>
                       <p className="text-code-sm bg-surface-container-low px-4 py-3 rounded-lg border border-border-subtle">
-                        {new Date(selected.submittedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {selected.submittedAt ? new Date(selected.submittedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recently'}
                       </p>
                     </div>
                   </div>
                   <div>
                     <p className="font-label-caps text-[10px] text-on-surface-variant mb-3 uppercase">Risk Signals</p>
                     <div className="flex flex-wrap gap-2">
-                      {selected.reasons.map(r => (
+                      {(selected.reasons || []).map(r => (
                         <span key={r} className="px-3 py-1.5 bg-status-warning/10 text-status-warning border border-status-warning/20 rounded-lg text-[11px] font-bold capitalize">{r.replace(/_/g, ' ')}</span>
                       ))}
-                      {selected.reasons.length === 0 && <span className="text-code-sm text-on-surface-variant">No signals — clean profile</span>}
+                      {(!selected.reasons || selected.reasons.length === 0) && <span className="text-code-sm text-on-surface-variant">No signals — clean profile</span>}
                     </div>
                   </div>
                   {selected.status === 'pending' ? (

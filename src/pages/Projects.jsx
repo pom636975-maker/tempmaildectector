@@ -9,10 +9,17 @@ export default function Projects() {
 
   const fetchProjects = () => {
     setLoading(true);
-    getProjects().then(data => {
-      setProjects(data);
-      setLoading(false);
-    });
+    getProjects()
+      .then(data => {
+        setProjects(Array.isArray(data) ? data : []);
+      })
+      .catch(err => {
+        console.error('Failed to load projects:', err);
+        setProjects([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   useEffect(() => {
@@ -53,9 +60,9 @@ export default function Projects() {
       {/* Metric cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-8">
         {[
-          { label: 'Active Projects', value: projects.filter(p => p.status === 'active').length, color: 'text-status-protected', bar: 'bg-status-protected', w: '100%' },
-          { label: 'Total API Checks', value: projects.reduce((a, p) => a + (p.checksThisMonth || 0), 0).toLocaleString(), color: 'text-secondary', bar: 'bg-secondary', w: '48%' },
-          { label: 'Current Plan', value: projects[0]?.plan || 'Growth', color: 'text-primary', bar: 'bg-primary', w: '60%' },
+          { label: 'Active Projects', value: (projects || []).filter(p => p.status === 'active').length, color: 'text-status-protected', bar: 'bg-status-protected', w: '100%' },
+          { label: 'Total API Checks', value: (projects || []).reduce((a, p) => a + (p.checksThisMonth || 0), 0).toLocaleString(), color: 'text-secondary', bar: 'bg-secondary', w: '48%' },
+          { label: 'Current Plan', value: projects[0]?.plan || projects[0]?.plan_name || 'Growth', color: 'text-primary', bar: 'bg-primary', w: '60%' },
         ].map(m => (
           <div key={m.label} className="bg-white border border-border-subtle p-6 rounded-xl metric-card-hover transition-all">
             <p className="font-label-caps text-[10px] text-on-surface-variant mb-4 uppercase tracking-wider">{m.label}</p>
@@ -113,7 +120,7 @@ export default function Projects() {
                   </div>
                   <div>
                     <h3 className="font-headline-sm text-[18px] text-on-surface">{p.name}</h3>
-                    <p className="font-label-caps text-[10px] text-on-surface-variant uppercase mt-1">{p.plan} Plan</p>
+                    <p className="font-label-caps text-[10px] text-on-surface-variant uppercase mt-1">{p.plan || p.plan_name || 'Starter'} Plan</p>
                   </div>
                 </div>
                 <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border ${p.status === 'active' ? 'bg-status-protected/10 text-status-protected border-status-protected/20' : 'bg-surface-container text-on-surface-variant border-border-subtle'}`}>
@@ -125,7 +132,7 @@ export default function Projects() {
                 <div>
                   <p className="font-label-caps text-[10px] text-on-surface-variant mb-2 uppercase">API Key</p>
                   <p className="text-code-sm font-mono bg-surface-container-low border border-border-subtle px-4 py-2.5 rounded-lg text-on-surface-variant truncate">
-                    {p.apiKey?.slice(0, 24)}••••
+                    {p.apiKey || p.api_key ? `${(p.apiKey || p.api_key).slice(0, 24)}••••` : 'st_live_••••••••••••'}
                   </p>
                 </div>
                 <div className="pt-4 border-t border-border-subtle flex justify-between items-center">

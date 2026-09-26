@@ -14,8 +14,8 @@ export default function AdminSettings() {
     getAdminSettings()
       .then((data) => {
         setProtectionMode(data.protection_mode || 'standard');
-        setDefaultLimit(data.default_limit || 1000);
-        setMaintenanceMode(data.maintenance_mode || false);
+        setDefaultLimit(data.default_limit ?? 1000);
+        setMaintenanceMode(data.maintenance_mode ?? false);
         setAnnouncement(data.announcement || '');
         setLoading(false);
       })
